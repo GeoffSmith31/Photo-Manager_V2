@@ -1,0 +1,19 @@
+.venv/
+__pycache__/
+*.pyc
+session.json
+downloads/
+*.log
+.idea/
+.vscode/
+*.swp
+project.json
+# LibreOffice temporary files
+.~lock.*
+
+# Linux editor backups
+*~
+
+# macOS / Windows
+.DS_Store
+Thumbs.db

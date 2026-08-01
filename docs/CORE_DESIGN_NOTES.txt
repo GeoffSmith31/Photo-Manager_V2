@@ -1,0 +1,63 @@
+CORE DESIGN NOTES
+-----------------
+
+UI
+
+□ ACTION_REQUIRED displayed as modal dialog.
+□ Dialog uses Acknowledge button.
+□ Dialog always on top.
+
+## UI-001 - ACTION_REQUIRED Presentation
+
+Status: Proposed
+
+Summary
+
+ACTION_REQUIRED messages shall be acknowledged by the user before being
+dismissed.
+
+Notes
+
+Acknowledgement confirms that the user has seen the instruction. It does
+not indicate that the requested action has been completed.
+
+The Importer remains responsible for detecting completion of the
+requested action.
+
+## UI-002 - Source-specific User Interfaces
+
+Status: Proposed
+
+Summary
+
+Source-specific user interfaces are owned by the Importer.
+
+Notes
+
+Examples include Playwright browser windows, native file pickers and
+authentication dialogs.
+
+
+
+□ STATUS displayed in status area.
+□ WARNING displayed in log and warning area.
+□ ERROR recovery dialog.
+
+Window Management
+
+□ Source-specific UI owned by Importer.
+□ Playwright remains open for lifetime of import.
+□ Attempt to open Playwright on same monitor as Core.
+□ Bring Core to front only when necessary.
+
+Logging
+
+□ Log every API failure.
+□ Log all WARNING and ERROR messages.
+□ Configurable log level?
+
+Design Notes: 
+
+The communications interfaces are intentionally asynchronous. Commands issued using IMPORTER-001 do not return result codes. Completion of a command is reported by the Importer using the existing CORE-004 communications interface where appropriate.
+
+Asset registration is a distinct phase that SHALL complete before asset acquisition begins.

@@ -1,0 +1,215 @@
+V2 Ideas
+
+New name for the application
+
+V2 Design: Develop an Importer SDK Specification defining the Core API exposed to importers. The SDK will encapsulate workspace creation, project management and photo management, allowing importers to operate without knowledge of project storage or filesystem layout.
+
+Architecture
+------------
+- Remove duplicate current_index logic.
+- Project owns navigation.
+- Eliminate globals.
+- Better backend state ownership.
+- Navigation endpoints should always update editor state through a single synchronization function.
+- Make project.json the single source of truth for photo metadata.
+- Apply metadata inheritance during Save by updating Info for subsequent incomplete photos in the same moment and Location for incomplete photos with the same location_key.
+- Render the editor directly from photo values stored in project.json rather than the in-memory defaults cache.
+- Restrict the moment defaults cache to assisting inheritance only; it should not determine what the editor displays.
+- Validate and sanitise the user-entered Event Name before using it as workspace.image_folder. Preserve the original event name for display purposes. Generate a filesystem-safe directory name that is portable across Linux, Windows and macOS.
+
+Features
+--------
+- Configuration GUI for Download Root, Optional AI account
+- Multiple import sources.
+- AI-assisted locations.
+- AI-assisted descriptions.
+- Finalise workflow.
+- Help system.
+- Donations link
+- Plugin import/export architecture.
+- Make year editable in editor - maybe this is already done.
+- For Resume, continue an interrupted download if applicable (needs reauth)
+
+UI
+--
+- Need to launch a browser to localhost:8000 on startup of the application and hide the terminal
+- Better progress panel.
+- Keyboard shortcuts.
+- Metadata validation.
+- Frame around the photo in editor
+- Building the Project should show progress.  My test was a Journi with 237 photos and it took 3 minutes to build the project.  The app appeared frozen.
+- Add Pause/Cancel options for Downloading
+- Make the editor nicer with window resizing
+- Remove all viewport (vh) sizing from editor.css. The editor should size itself relative to its parent container rather than the browser window.
+- Include a Search (Unedited/Missing Year/Missing Location/Etc) with forwards and backwards search buttons
+- In metadata fields ENTER should progress to next field. Enter when in Info should Save & Next and cursor back to Year
+- On the last photo the "Save & Next" should say "Save"
+- Need to know if a photo has been edited previously. Disable the metadata fields and add an over-ride edits checkbox for completed photos.
+- The Info text box needs to indicate if there is more text that is outside the box.  Maybe the box should be multi-line?
+
+V1 BUGS
+=============================================================
+Type: Bug / Enhancement / Idea
+Severity: Critical / High / Medium / Low
+Area: Download, Editor, Control Tower, UI, Performance, etc.
+Description: What happened or what you'd like changed.
+Reproducible?: Always / Sometimes / Once
+Notes: Anything else you observed.
+=================================================================
+---------------------------------------------------------
+Bug #001
+Area: Editor
+Severity: Medium
+
+When editing the Location, other photos with the same location_key do not inherit the edited location. 
+#UPDATED - It seems that the Location inheritance works within the same moment, but not between different moments?
+
+Reproducible:
+Happened Twice.
+
+Possible Cause:
+Inherit function not linked for this?
+-----------------------------------------------------------
+---------------------------------------------------------
+Bug #002
+Area: Editor
+Severity: Minor
+
+After saving the last photo the badge says Loading
+
+Reproducible:
+?.
+
+Possible Cause:
+
+-----------------------------------------------------------
+---------------------------------------------------------
+Bug #003
+Area: Editor
+Severity: Medium
+
+If a Google Maps tab has been left open, clicking "View on Google Maps" should re-activate the existing tab.
+Instead a new tab opens.
+
+Reproducible:
+3/3
+
+Possible Cause:
+Not identifying the existing tab correctly?
+-----------------------------------------------------------
+---------------------------------------------------------
+Bug #004
+Area: Project
+Severity: Major
+
+Status: Fixed (pre-beta)
+
+Cause:
+editor.js was reading:
+document.getElementById("year").innerText
+
+The Year field is an input control and should use:
+document.getElementById("year").value
+
+After updating the code and performing a hard browser refresh,
+the year is correctly written to project.json and EXIF.
+
+Resolution:
+Fixed before large-scale beta testing.
+-----------------------------------------------------------
+---------------------------------------------------------
+Bug #005
+Area: Select Journi
+Severity: Medium
+
+Using two screens.  Control tower is on the second screen and then playwright opens on the first screen.
+Playwright does not get hidden behind control tower in this case.
+
+Reproducible:
+100%
+
+Possible Cause:
+The app is unaware which screen Control tower is using.
+-----------------------------------------------------------
+---------------------------------------------------------
+Bug #006
+Area: Workflow
+Severity: Minor
+
+The Select Journi panel displays the Event Name not the Journi Name when in EDITOR state.  Same in Downloading State
+
+Reproducible:
+100%
+
+Possible Cause:
+A bug in the state machine logic.
+-----------------------------------------------------------
+---------------------------------------------------------
+Bug #007
+Area: Downloading
+Severity: Minor
+
+Duplicated information x of y Photos on both Workflow panel and the Current Activity panel
+
+Reproducible:
+100%
+
+Possible Cause:
+Oversight in design.  Make the Download Photos workflow panel say Downloading...  And show the photo count on the Activity Panel.  When the download completes, show the count on the Workflow panel.  
+-----------------------------------------------------------
+---------------------------------------------------------
+Bug #008
+Area: Editing
+Severity: Medium
+
+Editing Info for a photo appears to change all info for photos from the same moment. Only unedited photos should inherit the Info
+
+Reproducible:
+100%
+
+Possible Cause:
+Investigation shows this is only the displayed info, the underlying project.json data is not overwritten automatically.
+Architecture change as above is required to resolve this bug correctly. 
+-----------------------------------------------------------
+---------------------------------------------------------
+Bug #009
+Area: Editing
+Severity: Medium
+
+Clicking Save & Next advances the editor to the Next Unedited photo, not the Next photo
+
+Reproducible:
+100%
+
+Possible Cause:
+Invalid logic (or wrong label?)
+-----------------------------------------------------------
+---------------------------------------------------------
+Bug #010
+Area: Editing
+Severity: Minor
+
+Occasionally 0.00, 0.00 is displayed as the Location.  It should say Unknown
+
+Reproducible:
+?
+
+Possible Cause:
+Original photo does not have GPS metadata?
+-----------------------------------------------------------
+"This is the “official” route.  We went back to the main road"
+---------------------------------------------------------
+Bug #011
+Area: Metadata
+Severity: Moderate
+
+The info was | This is the “official” route.  We went back to the main road | but on Kodi it displays squares and using Image viewer it says unsupported UNICODE string. Exiftool displays it.
+Same issue with | FNQ Bike Tour - 2026 - Wongabel - Gerard’s GPS says this goat track will connect to the rail trail |
+Same issue with | FNQ Bike Tour - 2026 - Wongabel - This is the worst rail trail we’ve been on |
+
+Reproducible:
+3
+
+Possible Cause:
+The quotes are probably the issue.  Need to prevent the user from entering unsupported characters.
+-----------------------------------------------------------
