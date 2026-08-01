@@ -45,3 +45,13 @@ In normal operation, only WARNING and ERROR messages are recorded.
 During development or troubleshooting, INFO and DEBUG logging may be enabled.
 
 Log entries identify the originating component and, where applicable, the active project.
+
+# ADR-003 – Orchestrator-Centred Workflow
+
+The Orchestrator coordinates all business operations between Core components.
+
+Components SHALL NOT invoke business operations on other components directly.
+
+Infrastructure services (such as logging) are configured during application startup and may be used directly by application components.
+
+This separation prevents the Orchestrator from becoming an infrastructure bottleneck while ensuring it remains the single authority for application workflow and state transitions.
