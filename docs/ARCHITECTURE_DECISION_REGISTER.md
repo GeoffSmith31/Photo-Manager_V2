@@ -55,3 +55,35 @@ Components SHALL NOT invoke business operations on other components directly.
 Infrastructure services (such as logging) are configured during application startup and may be used directly by application components.
 
 This separation prevents the Orchestrator from becoming an infrastructure bottleneck while ensuring it remains the single authority for application workflow and state transitions.
+
+# ADR-004 – Logging Architecture
+
+Decision
+
+Logging is provided by a dedicated Logging Service.
+The Orchestrator configures the Logging Service during application startup.
+The Settings Service provides the logging directory and logging level.
+The Logging Service determines log filenames and manages log rotation.
+All components obtain loggers via get_logger().
+Components use human-readable names (e.g. "Project Manager") rather than Python module names.
+The Logging Service supports standalone operation for development and testing.
+
+# ADR-005 – Separation of Application and Workspace Configuration
+
+The Settings Service stores only application-wide configuration.
+Application settings are in a .json file.
+Each workspace stores its own configuration in project.json.
+Runtime state is maintained separately and is not persisted unless explicitly required.
+
+# ADR-006 – Platform Directory Resolution
+
+Decision
+
+Photo Manager shall use the platformdirs library to determine platform-specific locations for configuration, application state, cache and log files.
+
+Rationale
+
+avoids maintaining operating-system-specific code
+follows native platform conventions
+mature, widely-used library
+small, focused dependency

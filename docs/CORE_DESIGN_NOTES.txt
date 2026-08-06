@@ -61,3 +61,5 @@ Design Notes:
 The communications interfaces are intentionally asynchronous. Commands issued using IMPORTER-001 do not return result codes. Completion of a command is reported by the Importer using the existing CORE-004 communications interface where appropriate.
 
 Asset registration is a distinct phase that SHALL complete before asset acquisition begins.
+
+Photo Manager shall minimise complexity for two audiences: end users and extension developers.

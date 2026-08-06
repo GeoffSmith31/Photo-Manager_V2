@@ -37,8 +37,21 @@ The application specifies only the directory in which log files are stored.
 
 from pathlib import Path
 import logging
+from logging.handlers import RotatingFileHandler
+from photo_manager.application import LOG_FILENAME
 
-_LOG_FILE_NAME = "photo_manager.log"
+# ---------------------------------------------------------------------
+# Logging Configuration
+# ---------------------------------------------------------------------
+
+_LOG_FILE_NAME = LOG_FILENAME
+
+_KB = 1024
+_MB = 1024 * _KB
+
+_LOG_MAX_BYTES = 5 * _MB
+
+_LOG_BACKUP_COUNT = 5
 
 _LOG_FORMAT = (
     "%(asctime)s "
@@ -49,6 +62,8 @@ _LOG_FORMAT = (
 
 _LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
+#------------------------------------------------------------------------
+
 __all__ = [
     "configure_logging",
     "get_logger",
@@ -58,6 +73,7 @@ __all__ = [
 def configure_logging(
     level: int,
     log_directory: Path | None = None,
+    console_logging: bool = True,
 ) -> None:
     """
     Configure the Photo Manager logging service.
@@ -69,11 +85,16 @@ def configure_logging(
 
     log_directory
         Directory in which application log files will be written.
-        If None, only console logging is enabled.
+        If None, file logging is disabled.
+
+    console_logging
+        If True, log messages are written to the console.
+        If False, console logging is disabled.
     """
 
     # Obtain the application's root logger.
     root_logger = logging.getLogger()
+
     # Remove any existing handlers so repeated initialisation
     # always starts from a known state.
     for handler in root_logger.handlers[:]:
@@ -83,21 +104,67 @@ def configure_logging(
     # Set the minimum logging level.
     root_logger.setLevel(level)
 
-    # Create a console handler.
-    console_handler = logging.StreamHandler()
-
-    # Attach the console handler to the root logger.
-    root_logger.addHandler(console_handler)
-    
+    # Create the formatter.
     formatter = logging.Formatter(
         _LOG_FORMAT,
         datefmt=_LOG_DATE_FORMAT,
     )
-    console_handler.setFormatter(formatter)
-    
+
+    # -----------------------------------------------------------------
+    # Console logging
+    # -----------------------------------------------------------------
+
+    if console_logging:
+
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(formatter)
+        root_logger.addHandler(console_handler)
+
+    # -----------------------------------------------------------------
+    # File logging
+    # -----------------------------------------------------------------
+
+    if log_directory is not None:
+
+        # Ensure the log directory exists.
+        log_directory.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        # Construct the application log filename.
+        log_file = log_directory / _LOG_FILE_NAME
+
+        # Create the rotating file handler.
+        file_handler = RotatingFileHandler(
+            filename=log_file,
+            maxBytes=_LOG_MAX_BYTES,
+            backupCount=_LOG_BACKUP_COUNT,
+        )
+
+        file_handler.setFormatter(formatter)
+        root_logger.addHandler(file_handler)
+
+    # -----------------------------------------------------------------
+    # Log the logging service configuration.
+    # -----------------------------------------------------------------
+
     logger = get_logger("Logging Service")
+
     logger.info("Logging service initialised.")
-    logger.info("Logging level: %s", logging.getLevelName(level))
+    logger.info(
+        "Logging level: %s",
+        logging.getLevelName(level),
+    )
+
+    if log_directory is not None:
+        logger.info(
+            "Log file: %s",
+            log_file.resolve(),
+        )
+    else:
+        logger.info("File logging disabled.")
+
 
 def get_logger(name: str) -> logging.Logger:
     """
@@ -115,6 +182,7 @@ if __name__ == "__main__":
     configure_logging(
         level=logging.DEBUG,
         log_directory=Path("./logs"),
+        console_logging=True,
     )
 
     logger = get_logger(__name__)
