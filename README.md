@@ -15,3 +15,10 @@ Licence
 
 Mozilla Public License Version 2.0.
 See LICENSE for the complete text
+
+## System Dependencies
+
+Photo Manager requires the following system packages for the
+native Qt GUI:
+
+- libxcb-cursor0

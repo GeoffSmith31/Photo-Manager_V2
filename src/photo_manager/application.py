@@ -9,57 +9,100 @@
 # =============================================================================
 
 """
-Photo Manager Application Information
+Photo Manager Application
 
-Purpose
--------
-Provides application-wide constants used throughout Photo Manager.
+## Purpose
 
-Responsibilities
-----------------
-- Define the application's identity.
-- Provide application naming constants.
-- Define standard filenames used by the application.
+Manages the application lifecycle.
 
-Notes
------
-This module contains only constant values.
+## Responsibilities
 
-No application logic should be implemented here.
+- Create and manage the Qt application instance.
+- Start the Photo Manager application.
+
+## Notes
+
+The Application service owns the Qt application instance and
+event loop.
+
+The Orchestrator owns the Photo Manager application workflow
+and application state.
+
+The Window Manager owns and coordinates the application's
+GUI windows.
 """
 
-# ---------------------------------------------------------------------
-# Application Identity
-# ---------------------------------------------------------------------
+import sys
+from photo_manager.window_manager import WindowManager
+from PySide6.QtWidgets import QApplication
+from photo_manager.constants import (
+    APPLICATION_NAME,
+    APPLICATION_ORGANISATION,
+)
 
-APPLICATION_NAME = "Photo Manager"
 
-APPLICATION_ID = "photo_manager"
+# -----------------------------------------------------------------
+# Application
+# -----------------------------------------------------------------
 
-APPLICATION_ORGANISATION = "Photo Manager"
+class Application:
+    """
+    Owns the Photo Manager application lifecycle.
+    """
 
-APPLICATION_AUTHOR = "Geoff"
+    # -------------------------------------------------------------
+    # Constructor
+    # -------------------------------------------------------------
 
-# ---------------------------------------------------------------------
-# Standard Filenames
-# ---------------------------------------------------------------------
+    def __init__(self) -> None:
+        """
+        Initialise the Photo Manager application.
+        """
 
-SETTINGS_FILENAME = "settings.json"
+        self._application = QApplication(
+            sys.argv
+        )
 
-PROJECT_FILENAME = "project.json"
+        self._application.setApplicationName(
+            APPLICATION_NAME
+        )
 
-LOG_FILENAME = "photo_manager.log"
+        self._application.setApplicationDisplayName(
+            APPLICATION_NAME
+        )
 
-# ---------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------
+        self._application.setOrganizationName(
+            APPLICATION_ORGANISATION
+        )
 
-__all__ = [
-    "APPLICATION_NAME",
-    "APPLICATION_ID",
-    "APPLICATION_ORGANISATION",
-    "APPLICATION_AUTHOR",
-    "SETTINGS_FILENAME",
-    "PROJECT_FILENAME",
-    "LOG_FILENAME",
-]
+        self._window_manager = WindowManager()
+
+    # -------------------------------------------------------------
+    # Run
+    # -------------------------------------------------------------
+
+    def run(self) -> int:
+        """
+        Start the Qt application event loop.
+
+        Returns
+        -------
+        int
+            Application exit code.
+        """
+        self._window_manager.show_control_tower()
+
+        return self._application.exec()
+
+
+# ============================================================================
+# Standalone Test Harness
+# ============================================================================
+
+if __name__ == "__main__":
+
+    application = Application()
+
+    sys.exit(
+        application.run()
+    )

@@ -43,7 +43,7 @@ from pathlib import Path
 import logging
 import json
 from platformdirs import user_config_dir
-from photo_manager.application import APPLICATION_ID
+from photo_manager.constants import APPLICATION_ID
 from photo_manager.logging import (
     configure_logging,
     get_logger,

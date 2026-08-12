@@ -41,7 +41,8 @@ operational state.
 The Orchestrator owns the application's current state and determines
 the sequence in which application services are invoked.
 """
-
+import sys
+from PySide6.QtWidgets import QApplication
 from enum import Enum, auto
 from pathlib import Path
 import logging
@@ -54,6 +55,9 @@ from photo_manager.settings import (
     Settings,
     load_settings,
 )
+
+from photo_manager.stage_status import StageStatus
+from photo_manager.workflow_stage import WorkflowStage
 from photo_manager.window_manager import WindowManager
 
 logger = get_logger("Orchestrator")
@@ -142,6 +146,10 @@ class Orchestrator:
     ) -> None:
         """
         Change the application's operational state.
+
+        The Orchestrator remains the authoritative source of the
+        application state and informs the Window Manager when that
+        state changes.
         """
 
         if state == self._state:
@@ -156,16 +164,58 @@ class Orchestrator:
         self._previous_state = self._state
         self._state = state
 
-        # Future enhancements:
-        #
-        # - Notify the GUI.
-        # - Update the workflow panel.
-        # - Enable/disable user commands.
-        # - Publish state change events.
-        
+        # -------------------------------------------------------------
+        # Update the user-facing Workflow Stage.
+        # -------------------------------------------------------------
+
+        workflow_mapping = {
+            ApplicationState.PROJECT_SELECTION: (
+                WorkflowStage.PROJECT_SELECTION,
+                StageStatus.IN_PROGRESS,
+            ),
+
+            ApplicationState.CONNECTING_SOURCE: (
+                WorkflowStage.SOURCE_SELECTION,
+                StageStatus.IN_PROGRESS,
+            ),
+
+            ApplicationState.REGISTERING: (
+                WorkflowStage.IMPORTING,
+                StageStatus.IN_PROGRESS,
+            ),
+
+            ApplicationState.DOWNLOADING: (
+                WorkflowStage.IMPORTING,
+                StageStatus.IN_PROGRESS,
+            ),
+
+            ApplicationState.EDITING: (
+                WorkflowStage.EDITING,
+                StageStatus.IN_PROGRESS,
+            ),
+
+            ApplicationState.SHUTTING_DOWN: (
+                WorkflowStage.FINALISATION,
+                StageStatus.IN_PROGRESS,
+            ),
+        }
+
+        workflow_update = workflow_mapping.get(
+            state
+        )
+
+        if workflow_update is not None:
+
+            stage, status = workflow_update
+
+            self._window_manager.set_workflow_stage_status(
+                stage,
+                status,
+            )        
     # -----------------------------------------------------------------
     # Start Up
     # -----------------------------------------------------------------
+
     def startup(self) -> None:
         """
         Initialise the Photo Manager application.
@@ -175,17 +225,49 @@ class Orchestrator:
             "Starting Photo Manager."
         )
 
-        self._set_state(
-            ApplicationState.STARTING,
+        # -------------------------------------------------------------
+        # Initialisation
+        # -------------------------------------------------------------
+
+        self._window_manager.set_workflow_stage_status(
+            WorkflowStage.INITIALISATION,
+            StageStatus.IN_PROGRESS,
         )
 
         self._load_settings()
-        
+
         # Ensures a valid workspace is available.
         # May request that the user selects one.
+
         self._validate_workspace()
 
         self._discover_projects()
+
+        # -------------------------------------------------------------
+        # Initialisation Complete
+        # -------------------------------------------------------------
+
+        self._window_manager.set_workflow_stage_status(
+            WorkflowStage.INITIALISATION,
+            StageStatus.COMPLETED,
+        )
+
+        self._window_manager.set_workflow_stage_result(
+            WorkflowStage.INITIALISATION,
+            "Success",
+        )
+
+        # -------------------------------------------------------------
+        # Project Selection
+        # -------------------------------------------------------------
+
+        self._set_state(
+            ApplicationState.PROJECT_SELECTION,
+        )
+        
+        self._window_manager.status_message(
+            "Awaiting Project Selection"
+        )
 
         self._present_project_selection()
 
@@ -375,7 +457,7 @@ class Orchestrator:
         )
         
 # ============================================================================
-# Standalone test harness
+# Standalone Test Harness
 # ============================================================================
 
 if __name__ == "__main__":
@@ -385,10 +467,18 @@ if __name__ == "__main__":
         console_logging=True,
     )
 
+    application = QApplication(
+        sys.argv
+    )
+
     orchestrator = Orchestrator()
+
+    orchestrator._window_manager.show_control_tower()
 
     orchestrator.startup()
 
     print(
         f"Current State : {orchestrator.state.name}"
     )
+
+    application.exec()

@@ -38,7 +38,7 @@ The application specifies only the directory in which log files are stored.
 from pathlib import Path
 import logging
 from logging.handlers import RotatingFileHandler
-from photo_manager.application import LOG_FILENAME
+from photo_manager.constants import LOG_FILENAME
 
 # ---------------------------------------------------------------------
 # Logging Configuration

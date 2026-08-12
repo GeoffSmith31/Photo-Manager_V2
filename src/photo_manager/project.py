@@ -53,6 +53,7 @@ recovery action.
 """
 
 from dataclasses import dataclass
+from photo_manager.constants import PROJECT_FILENAME
 
 
 # ---------------------------------------------------------------------
