@@ -87,3 +87,94 @@ avoids maintaining operating-system-specific code
 follows native platform conventions
 mature, widely-used library
 small, focused dependency
+
+# ADR-007 — Project Directory Structure and Path Convention
+
+**Status:** Accepted  
+**Date:** 2026-08-13
+
+## Context
+
+Photo Manager projects are stored beneath the configured workspace.
+
+The project directory name is not required to match the Project Name stored in the project data. The application therefore needs a consistent and unambiguous method of locating project image files without relying on directory naming conventions or filesystem searches.
+
+The `project.json` file is the authoritative record for the project and contains the `image_folder` value and the filenames of the project's photos.
+
+## Decision
+
+Each Photo Manager project will be stored in its own directory beneath the configured workspace.
+
+The standard project directory structure is:
+
+    <workspace>/
+    └── <project directory>/
+        ├── project.json
+        └── <image_folder>/
+            ├── image1.jpg
+            ├── image2.jpg
+            └── ...
+
+The following path conventions apply:
+
+- `project.json` is located in the project directory.
+- `workspace.image_folder` contains a path relative to the project directory.
+- Each `photo.file` value contains a filename relative to `workspace.image_folder`.
+- The Project Name is obtained from `workspace.event`.
+- The project directory is determined from the location of `project.json`.
+- No absolute filesystem paths will be stored in `project.json`.
+
+Paths are therefore resolved as follows:
+
+    project_directory = project.json.parent
+
+    image_directory =
+        project_directory / workspace.image_folder
+
+    photo_path =
+        image_directory / photo.file
+
+For example:
+
+    Demo-PhotoManager-Workspace/
+    └── Alice's Wedding/
+        ├── project.json
+        └── photos/
+            ├── Cambodia139.jpg
+            └── MTW-Hut.png
+
+With:
+
+    "image_folder": "photos"
+
+and:
+
+    "file": "Cambodia139.jpg"
+
+the resulting image path is:
+
+    Alice\'s\ Wedding/photos/Cambodia139.jpg
+
+## Rationale
+
+This convention provides a consistent method of locating project files and images while keeping projects portable.
+
+It also means:
+
+- Project directory names do not need to match the Project Name.
+- The Project Name remains user-controlled through `workspace.event`.
+- `project.json` does not contain machine-specific absolute paths.
+- The application does not need to search the filesystem to determine where project images are located.
+- The same convention can be used by project discovery, importing, editing, thumbnail handling and finalisation.
+- A project remains valid even when it contains no downloaded photos.
+- The first photo listed in `project.json` can be used as a representative thumbnail when one exists.
+
+## Consequences
+
+The Project Service can resolve project and image paths consistently from the location of `project.json` and the relative paths recorded in the project data.
+
+Project discovery can locate projects by recursively searching for `project.json` files without making assumptions about project directory names.
+
+The GUI does not need to understand the filesystem structure. It receives resolved paths through the appropriate application interfaces.
+
+Any future changes to the project directory or image storage convention should be treated as an architectural decision and recorded accordingly.

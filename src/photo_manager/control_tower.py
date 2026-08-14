@@ -53,7 +53,9 @@ from photo_manager.constants import (
     CONTROL_TOWER_MINIMUM_HEIGHT,
     CONTROL_TOWER_MINIMUM_WIDTH,
 )
-
+from photo_manager.project_selection import (
+    ProjectSelectionRecord,
+)
 
 # ---------------------------------------------------------------------
 # Workflow Stage Panel
@@ -503,6 +505,24 @@ class ControlTower(QMainWindow):
         self._status_message.setText(
             message
         )
+
+    # -----------------------------------------------------------------
+    # Set Project Selection
+    # -----------------------------------------------------------------
+
+    def set_project_selection(
+        self,
+        project_records: list[ProjectSelectionRecord],
+    ) -> None:
+        """
+        Display the supplied project selection records.
+
+        The records are supplied in presentation order by the
+        Window Manager. The Control Tower only renders them.
+        """
+
+        # TODO:
+        # Build the Project Selection interface.
 
     # -----------------------------------------------------------------
     # Create Activity Panel

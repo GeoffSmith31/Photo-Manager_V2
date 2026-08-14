@@ -52,10 +52,18 @@ is responsible for determining the appropriate
 recovery action.
 """
 
+import json
+from pathlib import Path
 from dataclasses import dataclass
-from photo_manager.constants import PROJECT_FILENAME
+from photo_manager.constants import (
+    PROJECT_FILENAME,
+    SCHEMA_VERSION,
+)
+from photo_manager.project_selection import ProjectSelectionRecord
+from photo_manager.logging import get_logger
 
 
+logger = get_logger("Project")
 # ---------------------------------------------------------------------
 # Metadata Policy
 # ---------------------------------------------------------------------
@@ -85,11 +93,6 @@ class MetadataPolicies:
     year: MetadataPolicy
     location: MetadataPolicy
     info: MetadataPolicy
-
-
-# ---------------------------------------------------------------------
-# Workspace
-# ---------------------------------------------------------------------
 
 # ---------------------------------------------------------------------
 # Workspace
@@ -212,6 +215,315 @@ class Project:
 
     photos: list[Photo]
     
+# ---------------------------------------------------------------------
+# Validate Project JSON
+# ---------------------------------------------------------------------
+
+def validate_project_data(
+    project_json_path: Path,
+) -> bool:
+    """
+    Validate project.json syntax and schema compatibility.
+
+    Returns True if the project JSON is syntactically valid and
+    contains a supported schema version.
+    """
+
+    try:
+        data = json.loads(
+            project_json_path.read_text(
+                encoding="utf-8"
+            )
+        )
+
+    except json.JSONDecodeError:
+        logger.warning(
+            "Invalid JSON in project file: %s",
+            project_json_path,
+        )
+        return False
+
+    except OSError as error:
+        logger.warning(
+            "Unable to read project file %s: %s",
+            project_json_path,
+            error,
+        )
+        return False
+
+    try:
+        schema_version = data["workspace"]["schema"]
+
+    except (KeyError, TypeError):
+        logger.warning(
+            "Project is missing mandatory field: "
+            "workspace.schema: %s",
+            project_json_path,
+        )
+        return False
+
+    if (
+        not isinstance(schema_version, int)
+        or isinstance(schema_version, bool)
+        or schema_version != SCHEMA_VERSION
+    ):
+        logger.warning(
+            "Unsupported project schema version %r in %s",
+            schema_version,
+            project_json_path,
+        )
+        return False
+        
+    try:
+        registration_status = (
+            data["workspace"]["registration_status"]
+        )
+
+    except (KeyError, TypeError):
+        logger.warning(
+            "Project is missing mandatory field: "
+            "workspace.registration_status: %s",
+            project_json_path,
+        )
+        return False
+
+    valid_registration_statuses = {
+        "NOT_STARTED",
+        "IN_PROGRESS",
+        "COMPLETE",
+    }
+
+    if registration_status not in valid_registration_statuses:
+        logger.warning(
+            "Invalid registration_status %r in %s",
+            registration_status,
+            project_json_path,
+        )
+        return False
+        
+    try:
+        download_status = (
+            data["workspace"]["download_status"]
+        )
+
+    except (KeyError, TypeError):
+        logger.warning(
+            "Project is missing mandatory field: "
+            "workspace.download_status: %s",
+            project_json_path,
+        )
+        return False
+
+    valid_download_statuses = {
+        "NOT_STARTED",
+        "IN_PROGRESS",
+        "COMPLETE",
+    }
+
+    if download_status not in valid_download_statuses:
+        logger.warning(
+            "Invalid download_status %r in %s",
+            download_status,
+            project_json_path,
+        )
+        return False
+        
+    try:
+        project_name = data["workspace"]["event"]
+
+    except (KeyError, TypeError):
+        logger.warning(
+            "Project is missing mandatory field: "
+            "workspace.event: %s",
+            project_json_path,
+        )
+        return False
+
+    if (
+        not isinstance(project_name, str)
+        or not project_name.strip()
+    ):
+        logger.warning(
+            "Invalid workspace.event %r in %s",
+            project_name,
+            project_json_path,
+        )
+        return False
+
+    try:
+        image_folder = data["workspace"]["image_folder"]
+
+    except (KeyError, TypeError):
+        logger.warning(
+            "Project is missing mandatory field: "
+            "workspace.image_folder: %s",
+            project_json_path,
+        )
+        return False
+
+    if (
+        not isinstance(image_folder, str)
+        or not image_folder.strip()
+    ):
+        logger.warning(
+            "Invalid workspace.image_folder %r in %s",
+            image_folder,
+            project_json_path,
+        )
+        return False
+
+    image_directory = (
+        project_json_path.parent
+        / image_folder
+    )
+
+    if not image_directory.is_dir():
+        logger.warning(
+            "Project image folder not found: %s",
+            image_directory,
+        )
+        return False
+        
+    source_fields = (
+        "importer",
+        "source",
+        "source_id",
+        "source_title",
+    )
+
+    for field_name in source_fields:
+
+        try:
+            value = data["workspace"][field_name]
+
+        except (KeyError, TypeError):
+            logger.warning(
+                "Project is missing mandatory field: "
+                "workspace.%s: %s",
+                field_name,
+                project_json_path,
+            )
+            return False
+
+        if (
+            not isinstance(value, str)
+            or not value.strip()
+        ):
+            logger.warning(
+                "Invalid workspace.%s %r in %s",
+                field_name,
+                value,
+                project_json_path,
+            )
+            return False
+
+    return True
+    
+# ---------------------------------------------------------------------
+# Discover Available Projects
+# ---------------------------------------------------------------------
+
+def discover_available_projects(
+    workspace_directory: Path,
+) -> list[ProjectSelectionRecord]:
+    """
+    Discover all valid Photo Manager projects in a workspace.
+
+    Projects are identified by recursively locating project.json files.
+
+    The project name is obtained from workspace.event.
+
+    The image folder is resolved relative to the directory containing
+    project.json, using workspace.image_folder.
+
+    The thumbnail path is resolved to the complete filesystem path
+    using the first photo listed in project.json.
+
+    Projects without photos have no thumbnail.
+    """
+
+    project_records = []
+
+    project_files = sorted(
+        workspace_directory.rglob(
+            PROJECT_FILENAME
+        )
+    )
+
+    for project_json_path in project_files:
+
+        if not validate_project_data(
+            project_json_path
+        ):
+            continue
+
+        try:
+            data = json.loads(
+                project_json_path.read_text(
+                    encoding="utf-8"
+                )
+            )
+
+            workspace = data["workspace"]
+
+            project_name = workspace["event"]
+
+            image_folder = workspace["image_folder"]
+
+            project_directory = (
+                project_json_path.parent
+            )
+
+            image_directory = (
+                project_directory
+                / image_folder
+            )
+
+            photos = data.get(
+                "photos",
+                []
+            )
+
+            thumbnail_path = None
+
+            if photos:
+                first_photo = photos[0]
+
+                thumbnail_path = (
+                    image_directory
+                    / first_photo["file"]
+                )
+
+            valid = True
+
+            if thumbnail_path is not None:
+                if not thumbnail_path.is_file():
+                    logger.warning(
+                        "Thumbnail image not found: %s",
+                        thumbnail_path,
+                    )
+                    thumbnail_path = None
+
+            project_records.append(
+                ProjectSelectionRecord(
+                    project_name=project_name,
+                    project_json_path=project_json_path,
+                    image_folder=image_folder,
+                    thumbnail_path=thumbnail_path,
+                    is_new_project=False,
+                    valid=valid,
+                )
+            )
+
+        except (
+            KeyError,
+            json.JSONDecodeError,
+            OSError,
+            TypeError,
+        ):
+            continue
+
+    return project_records
 # ---------------------------------------------------------------------
 # Locate Project File
 # ---------------------------------------------------------------------   

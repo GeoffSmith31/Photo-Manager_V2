@@ -55,7 +55,12 @@ from photo_manager.settings import (
     Settings,
     load_settings,
 )
-
+from photo_manager.project import (
+    discover_available_projects,
+)
+from photo_manager.project_selection import (
+    ProjectSelectionRecord,
+)
 from photo_manager.stage_status import StageStatus
 from photo_manager.workflow_stage import WorkflowStage
 from photo_manager.window_manager import WindowManager
@@ -119,6 +124,8 @@ class Orchestrator:
 
         # Active workspace.
         self._workspace = None
+        
+        self._project_records = []
         
         self._window_manager = WindowManager()
 
@@ -396,12 +403,30 @@ class Orchestrator:
 
     def _discover_projects(self) -> None:
         """
-        Discover available projects in the workspace.
+        Discover and prepare projects for Project Selection.
         """
+
         logger.debug(
-        "Discovering available projects."
+            "Discovering available projects."
         )
-        pass
+
+        self._project_records = discover_available_projects(
+            self._workspace
+        )
+
+        self._project_records.sort(
+            key=lambda record: record.project_name.lower()
+        )
+
+        new_project = ProjectSelectionRecord(
+            project_name="New Project",
+            is_new_project=True,
+        )
+
+        self._project_records.insert(
+            0,
+            new_project,
+        )
 
 
     # -----------------------------------------------------------------
@@ -412,10 +437,14 @@ class Orchestrator:
         """
         Present the available projects to the user.
         """
+
         logger.debug(
-        "Presenting project selection."
+            "Presenting project selection."
         )
-        pass
+
+        self._window_manager.present_project_selection(
+            self._project_records
+        )
 
     # -----------------------------------------------------------------
     # Select Workspace
@@ -476,6 +505,23 @@ if __name__ == "__main__":
     orchestrator._window_manager.show_control_tower()
 
     orchestrator.startup()
+    
+    print()
+    print("=" * 72)
+    print("PROJECT SELECTION RECORDS")
+    print("=" * 72)
+
+    for index, record in enumerate(
+        orchestrator._project_records
+    ):
+        print()
+        print(f"[{index}]")
+        print(f"  Project Name : {record.project_name}")
+        print(f"  Project JSON : {record.project_json_path}")
+        print(f"  Image Folder : {record.image_folder}")
+        print(f"  Thumbnail    : {record.thumbnail_path}")
+        print(f"  New Project  : {record.is_new_project}")
+        print(f"  Valid        : {record.valid}")
 
     print(
         f"Current State : {orchestrator.state.name}"

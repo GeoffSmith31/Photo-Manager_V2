@@ -47,6 +47,9 @@ from photo_manager.control_tower import ControlTower
 from photo_manager.stage_status import StageStatus
 from photo_manager.workflow_stage import WorkflowStage
 from PySide6.QtWidgets import QApplication
+from photo_manager.project_selection import (
+    ProjectSelectionRecord,
+)
 from photo_manager.constants import (
     CONTROL_TOWER_DEFAULT_HEIGHT,
     CONTROL_TOWER_DEFAULT_WIDTH,
@@ -281,6 +284,32 @@ class WindowManager:
         return None
 
     # -------------------------------------------------------------
+    # Present Project Selection
+    # -------------------------------------------------------------
+
+    def present_project_selection(
+        self,
+        project_records: list[ProjectSelectionRecord],
+    ) -> None:
+        """
+        Present the available projects to the user.
+
+        The Orchestrator supplies the project records in the required
+        presentation order. The Window Manager passes them to the
+        Control Tower for display.
+        """
+
+        logger.debug(
+            "Presenting %d project selection records.",
+            len(project_records),
+        )
+
+        self._control_tower.set_project_selection(
+            project_records
+        )
+
+
+    # -------------------------------------------------------------
     # Show Control Tower
     # -------------------------------------------------------------
 
@@ -465,9 +494,29 @@ if __name__ == "__main__":
 
     windows = WindowManager()
     
+    test_records = [
+        ProjectSelectionRecord(
+            project_name="New Project",
+            is_new_project=True,
+        ),
+        ProjectSelectionRecord(
+            project_name="Test Project",
+        ),
+    ]
+    
     # -------------------------------------------------------------
     # Test Sequence
     # -------------------------------------------------------------
+
+    def test_project_selection() -> None:
+
+        logger.info(
+            "TEST 1: Project selection."
+        )
+
+        windows.present_project_selection(
+            test_records
+        )
 
     def test_geometry() -> None:
 
