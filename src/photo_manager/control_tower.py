@@ -56,6 +56,9 @@ from photo_manager.constants import (
 from photo_manager.project_selection import (
     ProjectSelectionRecord,
 )
+from photo_manager.project_selection_widget import (
+    ProjectSelectionWidget,
+)
 
 # ---------------------------------------------------------------------
 # Workflow Stage Panel
@@ -521,8 +524,14 @@ class ControlTower(QMainWindow):
         Window Manager. The Control Tower only renders them.
         """
 
-        # TODO:
-        # Build the Project Selection interface.
+        project_selection_widget = ProjectSelectionWidget(
+            project_records
+        )
+
+        self._activity_layout.addWidget(
+            project_selection_widget,
+            1,
+        )
 
     # -----------------------------------------------------------------
     # Create Activity Panel
@@ -547,11 +556,11 @@ class ControlTower(QMainWindow):
             QSizePolicy.Policy.Expanding,
         )
 
-        layout = QVBoxLayout(
+        self._activity_layout = QVBoxLayout(
             panel
         )
 
-        layout.setContentsMargins(
+        self._activity_layout.setContentsMargins(
             8,
             8,
             8,
@@ -566,7 +575,7 @@ class ControlTower(QMainWindow):
             Qt.AlignmentFlag.AlignCenter
         )
 
-        layout.addWidget(
+        self._activity_layout.addWidget(
             title,
             0,
         )
