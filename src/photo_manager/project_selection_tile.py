@@ -71,6 +71,37 @@ class ProjectSelectionTile(QPushButton):
             Qt.CursorShape.PointingHandCursor
         )
 
+        # Button appearance
+        self.setStyleSheet(
+            """
+            QPushButton {
+                background: #f0f0f0;
+                border: 2px solid #b0b0b0;
+                border-top-color: #ffffff;
+                border-left-color: #ffffff;
+                border-right-color: #808080;
+                border-bottom-color: #808080;
+                border-radius: 12px;
+            }
+
+            QPushButton:hover {
+                background: #f5f5f5;
+                border-top-color: #ffffff;
+                border-left-color: #ffffff;
+                border-right-color: #707070;
+                border-bottom-color: #707070;
+            }
+
+            QPushButton:pressed {
+                background: #dddddd;
+                border-top-color: #808080;
+                border-left-color: #808080;
+                border-right-color: #ffffff;
+                border-bottom-color: #ffffff;
+            }
+            """
+        )
+
         self._build_interface()
 
     # -----------------------------------------------------------------
@@ -112,7 +143,6 @@ class ProjectSelectionTile(QPushButton):
         self._thumbnail.setStyleSheet(
             """
             QLabel {
-                background: #eeeeee;
                 border-radius: 8px;
             }
             """
@@ -153,6 +183,25 @@ class ProjectSelectionTile(QPushButton):
 
     def _set_thumbnail(self) -> None:
 
+        if self._record.is_new_project:
+
+            self._thumbnail.setText(
+                "+"
+            )
+
+            self._thumbnail.setStyleSheet(
+                """
+                QLabel {
+                    color: #2e8b57;
+                    border-radius: 8px;
+                    font-size: 144px;
+                    font-weight: bold;
+                }
+                """
+            )
+
+            return
+
         thumbnail_path = (
             self._record.thumbnail_path
         )
@@ -162,8 +211,19 @@ class ProjectSelectionTile(QPushButton):
             or not thumbnail_path.is_file()
         ):
             self._thumbnail.setText(
-                "No thumbnail"
+                "?"
             )
+
+            self._thumbnail.setStyleSheet(
+                """
+                QLabel {
+                    color: #3366cc;
+                    font-size: 108px;
+                    border-radius: 8px;
+                }
+                """
+            )
+
             return
 
         reader = QImageReader(
@@ -211,12 +271,10 @@ if __name__ == "__main__":
     )
 
     record = ProjectSelectionRecord(
-        project_name="The Summer Gathering",
-        thumbnail_path=Path(
-            "/home/geoff/Demo-PhotoManager-Workspace/"
-            "Unusual Exception/images/img398.jpg"
-        ),
+        project_name="New Project",
+        is_new_project=True,
     )
+
 
     tile = ProjectSelectionTile(
         record

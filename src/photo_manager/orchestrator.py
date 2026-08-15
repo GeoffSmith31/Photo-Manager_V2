@@ -129,6 +129,10 @@ class Orchestrator:
         
         self._window_manager = WindowManager()
 
+        self._window_manager.set_project_selected_callback(
+            self._project_selected
+        )
+
         # Active project.
         self._project = None
 
@@ -445,6 +449,33 @@ class Orchestrator:
         self._window_manager.present_project_selection(
             self._project_records
         )
+
+    # -----------------------------------------------------------------
+    # Project Selected
+    # -----------------------------------------------------------------
+
+    def _project_selected(
+        self,
+        index: int,
+    ) -> None:
+        """
+        Handle a project selected by the user.
+        """
+
+        record = self._project_records[index]
+
+        print()
+        print("=" * 72)
+        print("PROJECT SELECTED")
+        print("=" * 72)
+        print()
+        print(f"Index        : {index}")
+        print(f"Project Name : {record.project_name}")
+        print(f"Project JSON : {record.project_json_path}")
+        print(f"Image Folder : {record.image_folder}")
+        print(f"Thumbnail    : {record.thumbnail_path}")
+        print(f"New Project  : {record.is_new_project}")
+        print(f"Valid        : {record.valid}")
 
     # -----------------------------------------------------------------
     # Select Workspace

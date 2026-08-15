@@ -35,7 +35,10 @@ The Window Manager controls what information is displayed
 and monitors user interaction with the GUI.
 """
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import (
+    Qt,
+    Signal,
+)
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -207,13 +210,14 @@ class WorkflowStagePanel(QFrame):
 
 # ---------------------------------------------------------------------
 # Control Tower
-# ---------------------------------------------------------------------
+# -----------------------------------------------python -m photo_manager.project_selection_widget----------------------
 
 class ControlTower(QMainWindow):
     """
     Main Photo Manager application window.
     """
-
+    project_selected = Signal(int)
+    
     # -----------------------------------------------------------------
     # Constructor
     # -----------------------------------------------------------------
@@ -222,7 +226,7 @@ class ControlTower(QMainWindow):
         """
         Initialise the Control Tower window.
         """
-
+      
         super().__init__()
 
         self.setWindowTitle(
@@ -528,6 +532,10 @@ class ControlTower(QMainWindow):
             project_records
         )
 
+        project_selection_widget.project_selected.connect(
+            self.project_selected.emit
+        )
+
         self._activity_layout.addWidget(
             project_selection_widget,
             1,
@@ -567,20 +575,35 @@ class ControlTower(QMainWindow):
             8,
         )
 
-        title = QLabel(
+        self._activity_title = QLabel(
             "ACTIVITY"
         )
 
-        title.setAlignment(
+        self._activity_title.setAlignment(
             Qt.AlignmentFlag.AlignCenter
         )
 
         self._activity_layout.addWidget(
-            title,
+            self._activity_title,
             0,
         )
 
         return panel
+        
+    # -----------------------------------------------------------------
+    # Set Activity Title
+    # -----------------------------------------------------------------      
+    def set_activity_title(
+        self,
+        title: str,
+    ) -> None:
+        """
+        Set the title displayed for the current activity.
+        """
+
+        self._activity_title.setText(
+            title
+        )      
 
     # -----------------------------------------------------------------
     # Create Status Panel
@@ -732,6 +755,13 @@ if __name__ == "__main__":
     )
 
     control_tower = ControlTower()
+    
+    control_tower.project_selected.connect(
+        lambda index:
+            print(
+                f"Selected project index: {index}"
+            )
+    )    
 
     control_tower.show()
 

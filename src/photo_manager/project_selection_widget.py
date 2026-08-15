@@ -15,7 +15,10 @@ Provides the graphical interface for selecting an existing project
 or creating a new project.
 """
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import (
+    Qt,
+    Signal,
+)
 from PySide6.QtWidgets import (
     QGridLayout,
     QScrollArea,
@@ -35,6 +38,7 @@ class ProjectSelectionWidget(QWidget):
     """
     Displays ProjectSelectionRecord objects as project tiles.
     """
+    project_selected = Signal(int)
 
     TILE_WIDTH = 250
     TILE_HEIGHT = 210
@@ -51,6 +55,26 @@ class ProjectSelectionWidget(QWidget):
         self._tiles = []
 
         self._build_interface()
+        
+    # -----------------------------------------------------------------
+    # Project Selected
+    # -----------------------------------------------------------------
+
+    def _project_selected(
+        self,
+        index: int,
+    ) -> None:
+        """
+        Emit the index of the selected project.
+        """
+
+        self.project_selected.emit(
+            index
+        )
+
+    # -----------------------------------------------------------------
+    # Build Interface
+    # -----------------------------------------------------------------
 
     def _build_interface(self) -> None:
 
@@ -99,10 +123,17 @@ class ProjectSelectionWidget(QWidget):
         # Create Tiles
         # -------------------------------------------------------------
 
-        for record in self._project_records:
+        for index, record in enumerate(
+            self._project_records
+        ):
 
             tile = ProjectSelectionTile(
                 record
+            )
+
+            tile.clicked.connect(
+                lambda checked=False, index=index:
+                    self._project_selected(index)
             )
 
             self._tiles.append(
@@ -255,6 +286,13 @@ if __name__ == "__main__":
 
     widget = ProjectSelectionWidget(
         test_records
+    )
+
+    widget.project_selected.connect(
+        lambda index:
+            print(
+                f"Selected project index: {index}"
+            )
     )
 
     widget.show()

@@ -42,7 +42,10 @@ knowing the underlying GUI implementation.
 from pathlib import Path
 import logging
 import sys
-from PySide6.QtCore import QRect, QTimer
+from PySide6.QtCore import (
+    QRect,
+    QTimer,
+)
 from photo_manager.control_tower import ControlTower
 from photo_manager.stage_status import StageStatus
 from photo_manager.workflow_stage import WorkflowStage
@@ -91,7 +94,12 @@ class WindowManager:
         self._discover_screens()
 
         self._control_tower = ControlTower()
+        
+        self._project_selected_callback = None
 
+        self._control_tower.project_selected.connect(
+            self._handle_project_selected
+        )
     # -------------------------------------------------------------
     # Discover Screens
     # -------------------------------------------------------------
@@ -148,6 +156,38 @@ class WindowManager:
             "Control Tower screen: %s",
             self._control_tower_screen.name(),
         )
+
+    # -------------------------------------------------------------
+    # Set Project Selection Callback
+    # -------------------------------------------------------------
+
+    def set_project_selected_callback(
+        self,
+        callback,
+    ) -> None:
+        """
+        Set the callback invoked when the user selects a project.
+        """
+
+        self._project_selected_callback = callback
+        
+    # -------------------------------------------------------------
+    # Handle Project Selection
+    # -------------------------------------------------------------
+
+    def _handle_project_selected(
+        self,
+        index: int,
+    ) -> None:
+        """
+        Forward the selected project index to the application.
+        """
+
+        if self._project_selected_callback is not None:
+
+            self._project_selected_callback(
+                index
+            )
 
     # -------------------------------------------------------------
     # Status Message
@@ -302,6 +342,10 @@ class WindowManager:
         logger.debug(
             "Presenting %d project selection records.",
             len(project_records),
+        )
+        
+        self._control_tower.set_activity_title(
+            "PROJECT SELECTION"
         )
 
         self._control_tower.set_project_selection(
