@@ -43,6 +43,7 @@ the sequence in which application services are invoked.
 """
 import sys
 from PySide6.QtWidgets import QApplication
+from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
 import logging
@@ -56,7 +57,10 @@ from photo_manager.settings import (
     load_settings,
 )
 from photo_manager.project import (
+    MetadataPolicies,
     discover_available_projects,
+    get_project_global,
+    get_photo_edit_data,
 )
 from photo_manager.project_selection import (
     ProjectSelectionRecord,
@@ -67,6 +71,22 @@ from photo_manager.window_manager import WindowManager
 
 logger = get_logger("Orchestrator")
 
+# ---------------------------------------------------------------------
+# Project Global Data
+# ---------------------------------------------------------------------
+
+@dataclass
+class ProjectGlobal:
+    """
+    Project-level information retained by the Orchestrator
+    while a project is open.
+    """
+
+    photo_count: int
+
+    metadata_policies: MetadataPolicies
+    
+    current_photo: int
 
 # ---------------------------------------------------------------------
 # Application State
@@ -138,6 +158,9 @@ class Orchestrator:
 
         # Active importer.
         self._importer = None
+        
+        # Active project-level data.
+        self._project_global = None
 
     @property
     def state(self) -> ApplicationState:
@@ -451,6 +474,18 @@ class Orchestrator:
         )
 
     # -----------------------------------------------------------------
+    # Clear Project Global Data
+    # -----------------------------------------------------------------
+
+    def _clear_project_global(self) -> None:
+        """
+        Clear project-level data belonging to the previously
+        active project.
+        """
+
+        self._project_global = None
+
+    # -----------------------------------------------------------------
     # Project Selected
     # -----------------------------------------------------------------
 
@@ -463,6 +498,40 @@ class Orchestrator:
         """
 
         record = self._project_records[index]
+        
+        self._project = record
+        
+        # -------------------------------------------------------------
+        # Clear any data belonging to the previously active project.
+        # -------------------------------------------------------------
+
+        self._clear_project_global()
+
+        # -------------------------------------------------------------
+        # Load project-level data for the newly selected project.
+        # -------------------------------------------------------------
+
+        photo_count, metadata_policies = get_project_global(
+            record.project_json_path
+        )
+
+        self._project_global = ProjectGlobal(
+            photo_count=photo_count,
+            metadata_policies=metadata_policies,
+            current_photo=0,
+        )
+
+        print()
+        print("PROJECT GLOBAL DATA")
+        print("-" * 72)
+        print(
+            f"Photo Count      : "
+            f"{self._project_global.photo_count}"
+        )
+        print(
+            f"Metadata Policies: "
+            f"{self._project_global.metadata_policies}"
+        )        
 
         print()
         print("=" * 72)
@@ -476,6 +545,67 @@ class Orchestrator:
         print(f"Thumbnail    : {record.thumbnail_path}")
         print(f"New Project  : {record.is_new_project}")
         print(f"Valid        : {record.valid}")
+        
+        self._load_current_photo()
+        
+    # -----------------------------------------------------------------
+    # Load Current Photo
+    # -----------------------------------------------------------------
+
+    def _load_current_photo(self) -> None:
+        """
+        Request the current photo's editing data from the
+        Project Service.
+        """
+
+        if self._project is None:
+            logger.error(
+                "Cannot load photo: no active project."
+            )
+            raise RuntimeError(
+                "Cannot load photo without an active project."
+            )
+
+        if self._project_global is None:
+            logger.error(
+                "Cannot load photo: no project global data."
+            )
+            raise RuntimeError(
+                "Cannot load photo without project global data."
+            )
+
+        photo_edit_data = get_photo_edit_data(
+            self._project.project_json_path,
+            self._project_global.current_photo,
+        )
+
+        print()
+        print("PHOTO EDIT DATA")
+        print("-" * 72)
+        print(
+            f"File             : "
+            f"{photo_edit_data.file}"
+        )
+        print(
+            f"Event            : "
+            f"{photo_edit_data.event}"
+        )
+        print(
+            f"Year             : "
+            f"{photo_edit_data.year}"
+        )
+        print(
+            f"Location         : "
+            f"{photo_edit_data.location}"
+        )
+        print(
+            f"Info             : "
+            f"{photo_edit_data.info}"
+        )
+        print(
+            f"Has Coordinates  : "
+            f"{photo_edit_data.has_coordinates}"
+        )
 
     # -----------------------------------------------------------------
     # Select Workspace

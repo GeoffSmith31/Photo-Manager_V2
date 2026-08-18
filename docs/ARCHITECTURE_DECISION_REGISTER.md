@@ -178,3 +178,86 @@ Project discovery can locate projects by recursively searching for `project.json
 The GUI does not need to understand the filesystem structure. It receives resolved paths through the appropriate application interfaces.
 
 Any future changes to the project directory or image storage convention should be treated as an architectural decision and recorded accordingly.
+
+# ADR-008 — Retrieve Data Only When Required
+
+**Status:** Accepted  
+**Date:** 2026-08-17
+
+## Context
+
+Photo Manager V2 uses `project.json` as the authoritative record of project configuration and photo metadata.
+
+The Orchestrator coordinates access to project data and maintains application state. It is tempting to retrieve additional photo data when a photo is first loaded, particularly data that might be useful for a later operation.
+
+For example, a photo may contain latitude and longitude. The Editor needs to know whether a Maps action is available, but it does not initially need the actual latitude and longitude values.
+
+If Orchestrator retrieves and retains those values when the photo is first loaded, they become a cached representation of authoritative project data. If the underlying project data subsequently changes, there is a risk that a later operation could inadvertently use the previously retrieved values rather than the current authoritative values.
+
+This is particularly undesirable given the V1.0 experience, where cached data could result in the Editor displaying information that did not actually reflect the current contents of `project.json`.
+
+## Decision
+
+Orchestrator will retrieve **only the project and photo data required for the current operation**.
+
+Data that is not required to perform the current operation will not be retrieved merely for possible future use.
+
+### Project-level data
+
+When a project is opened, Orchestrator will retrieve and retain the project-level information required for ongoing operation, including:
+
+- Number of photos in the project.
+- Metadata propagation policies.
+
+This information remains valid for the duration of the open project and is required by Orchestrator for normal Editor operation.
+
+### Photo-level data
+
+When a photo is requested, Orchestrator will retrieve the photo data required to populate the Editor:
+
+- Image filepath.
+- Event.
+- Year.
+- Location.
+- Info.
+- Whether latitude/longitude data exists.
+
+The actual latitude and longitude values will **not** be retrieved at this stage.
+
+### Data required for later operations
+
+If a later operation requires data that was not previously retrieved, Orchestrator will obtain that data from the Project Service at the time the operation is requested.
+
+For example, when the user requests **Launch Google Maps**:
+
+1. Editor reports the Maps request.
+2. Orchestrator requests the current photo's latitude and longitude from the Project Service.
+3. Orchestrator passes those current coordinates to Window Manager.
+4. Window Manager opens the browser at the requested location.
+
+This ensures that coordinates used to launch Maps are the current authoritative values rather than values previously retrieved and retained by Orchestrator.
+
+## Consequences
+
+### Positive
+
+- `project.json` remains the authoritative source of project and photo data.
+- Orchestrator cannot inadvertently use data it never retrieved.
+- The risk of stale photo metadata being used by later operations is reduced.
+- The Editor receives only the information it needs.
+- Data retrieval remains closely associated with the operation that requires it.
+- The architecture reinforces the V2 principle established after the V1.0 caching problems.
+
+### Negative
+
+- Some operations require an additional request to the Project Service.
+- Orchestrator must explicitly identify what data each operation requires.
+- An operation such as opening Google Maps requires a fresh project-data lookup rather than using data already available from the initial photo display.
+
+## Architectural Principle
+
+> **If Orchestrator does not need a value for the current operation, it does not retrieve it.**
+
+When a value is required later, it is retrieved from the authoritative Project Service at the point where it is required.
+
+This is intentional. It is preferable to perform an additional authoritative lookup than to risk treating previously retrieved data as current.

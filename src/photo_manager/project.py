@@ -64,6 +64,77 @@ from photo_manager.logging import get_logger
 
 
 logger = get_logger("Project")
+
+# ---------------------------------------------------------------------
+# Photo Data for Editing
+# ---------------------------------------------------------------------
+@dataclass
+class PhotoEditData:
+    """
+    Photo-level data required by the Editor Activity.
+    """
+
+    file: str
+    event: str
+    year: str
+    location: str
+    info: str
+    has_coordinates: bool
+
+# ---------------------------------------------------------------------
+# Get Photo Edit Data
+# ---------------------------------------------------------------------
+
+def get_photo_edit_data(
+    project_json_path: Path,
+    photo_index: int,
+) -> PhotoEditData:
+    """
+    Return the current photo data required by the Editor Activity.
+
+    The project.json file is read each time so that the returned
+    information is authoritative and not based on a cached photo
+    record.
+    """
+
+    logger.debug(
+        "Loading photo edit data: %s [%d]",
+        project_json_path,
+        photo_index,
+    )
+
+    data = json.loads(
+        project_json_path.read_text(
+            encoding="utf-8"
+        )
+    )
+
+    photo = data["photos"][photo_index]
+
+    image_directory = (
+        project_json_path.parent
+        / data["workspace"]["image_folder"]
+    )
+
+    file_path = (
+        image_directory
+        / photo["file"]
+    )
+
+    has_coordinates = (
+        photo.get("latitude") is not None
+        and photo.get("longitude") is not None
+    )
+
+    return PhotoEditData(
+        file=str(file_path),
+        event=photo["event"],
+        year=photo["year"],
+        location=photo["location"],
+        info=photo["info"],
+        has_coordinates=has_coordinates,
+    )
+    
 # ---------------------------------------------------------------------
 # Metadata Policy
 # ---------------------------------------------------------------------
@@ -418,6 +489,67 @@ def validate_project_data(
             return False
 
     return True
+    
+# ---------------------------------------------------------------------
+# Get Project Global Data
+# ---------------------------------------------------------------------
+
+def get_project_global(
+    project_json_path: Path,
+) -> tuple[int, MetadataPolicies]:
+    """
+    Return the project-level information required by the
+    Orchestrator.
+
+    The photo records are deliberately not returned. They remain
+    authoritative in project.json and are retrieved separately when
+    required.
+    """
+
+    logger.debug(
+        "Loading project global data: %s",
+        project_json_path,
+    )
+
+    data = json.loads(
+        project_json_path.read_text(
+            encoding="utf-8"
+        )
+    )
+
+    photo_count = len(
+        data["photos"]
+    )
+
+    metadata_data = data["metadata_policies"]
+
+    metadata_policies = MetadataPolicies(
+        event=MetadataPolicy(
+            propagate=metadata_data["event"]["propagate"],
+            priority=metadata_data["event"]["priority"],
+            default=metadata_data["event"]["default"],
+        ),
+        year=MetadataPolicy(
+            propagate=metadata_data["year"]["propagate"],
+            priority=metadata_data["year"]["priority"],
+            default=metadata_data["year"]["default"],
+        ),
+        location=MetadataPolicy(
+            propagate=metadata_data["location"]["propagate"],
+            priority=metadata_data["location"]["priority"],
+            default=metadata_data["location"]["default"],
+        ),
+        info=MetadataPolicy(
+            propagate=metadata_data["info"]["propagate"],
+            priority=metadata_data["info"]["priority"],
+            default=metadata_data["info"]["default"],
+        ),
+    )
+
+    return (
+        photo_count,
+        metadata_policies,
+    )
     
 # ---------------------------------------------------------------------
 # Discover Available Projects
