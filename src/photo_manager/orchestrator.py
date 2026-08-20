@@ -60,6 +60,9 @@ from photo_manager.project import (
     MetadataPolicies,
     discover_available_projects,
     get_project_global,
+    get_registration_status,
+    get_download_status,
+    get_photo_availability,
     get_photo_edit_data,
 )
 from photo_manager.project_selection import (
@@ -83,9 +86,9 @@ class ProjectGlobal:
     """
 
     photo_count: int
-
     metadata_policies: MetadataPolicies
-    
+    source: str
+    source_title: str
     current_photo: int
 
 # ---------------------------------------------------------------------
@@ -198,54 +201,7 @@ class Orchestrator:
         self._previous_state = self._state
         self._state = state
 
-        # -------------------------------------------------------------
-        # Update the user-facing Workflow Stage.
-        # -------------------------------------------------------------
-
-        workflow_mapping = {
-            ApplicationState.PROJECT_SELECTION: (
-                WorkflowStage.PROJECT_SELECTION,
-                StageStatus.IN_PROGRESS,
-            ),
-
-            ApplicationState.CONNECTING_SOURCE: (
-                WorkflowStage.SOURCE_SELECTION,
-                StageStatus.IN_PROGRESS,
-            ),
-
-            ApplicationState.REGISTERING: (
-                WorkflowStage.IMPORTING,
-                StageStatus.IN_PROGRESS,
-            ),
-
-            ApplicationState.DOWNLOADING: (
-                WorkflowStage.IMPORTING,
-                StageStatus.IN_PROGRESS,
-            ),
-
-            ApplicationState.EDITING: (
-                WorkflowStage.EDITING,
-                StageStatus.IN_PROGRESS,
-            ),
-
-            ApplicationState.SHUTTING_DOWN: (
-                WorkflowStage.FINALISATION,
-                StageStatus.IN_PROGRESS,
-            ),
-        }
-
-        workflow_update = workflow_mapping.get(
-            state
-        )
-
-        if workflow_update is not None:
-
-            stage, status = workflow_update
-
-            self._window_manager.set_workflow_stage_status(
-                stage,
-                status,
-            )        
+      
     # -----------------------------------------------------------------
     # Start Up
     # -----------------------------------------------------------------
@@ -297,6 +253,11 @@ class Orchestrator:
 
         self._set_state(
             ApplicationState.PROJECT_SELECTION,
+        )
+
+        self._window_manager.set_workflow_stage_status(
+            WorkflowStage.PROJECT_SELECTION,
+            StageStatus.IN_PROGRESS,
         )
         
         self._window_manager.status_message(
@@ -511,14 +472,42 @@ class Orchestrator:
         # Load project-level data for the newly selected project.
         # -------------------------------------------------------------
 
-        photo_count, metadata_policies = get_project_global(
+        (
+            photo_count,
+            metadata_policies,
+            source,
+            source_title,
+        ) = get_project_global(
             record.project_json_path
         )
 
         self._project_global = ProjectGlobal(
             photo_count=photo_count,
             metadata_policies=metadata_policies,
+            source=source,
+            source_title=source_title,
             current_photo=0,
+        )
+
+        self._window_manager.set_workflow_stage_status(
+            WorkflowStage.PROJECT_SELECTION,
+            StageStatus.COMPLETED,
+        )
+
+        self._window_manager.set_workflow_stage_result(
+            WorkflowStage.PROJECT_SELECTION,
+            record.project_name,
+        )
+        
+        self._window_manager.set_workflow_stage_status(
+            WorkflowStage.SOURCE_SELECTION,
+            StageStatus.COMPLETED,
+        )
+
+        self._window_manager.set_workflow_stage_result(
+            WorkflowStage.SOURCE_SELECTION,
+            f"{self._project_global.source} — "
+            f"{self._project_global.source_title}",
         )
 
         print()
@@ -546,8 +535,156 @@ class Orchestrator:
         print(f"New Project  : {record.is_new_project}")
         print(f"Valid        : {record.valid}")
         
+        self._open_project()
+    
+    # -----------------------------------------------------------------
+    # Open Project
+    # -----------------------------------------------------------------
+
+    def _open_project(self) -> None:
+        """
+        Open the selected project and follow the Open Project workflow.
+
+        This is currently the architectural skeleton.  Processes that
+        have not yet been implemented are represented by telltales and
+        pass statements so that the complete workflow can be exercised.
+        """
+        logger.info(
+            "Opening project: %s",
+            self._project.project_name,
+        )
+        print()
+        print("=" * 72)
+        print("OPEN PROJECT")
+        print("=" * 72)
+
+        # -------------------------------------------------------------
+        # Receive Project Information
+        # -------------------------------------------------------------
+
+        print("[OPEN PROJECT] Receive Project Information")
+        pass
+
+        # -------------------------------------------------------------
+        # Load Project Global Data
+        # -------------------------------------------------------------
+
+        print("[OPEN PROJECT] Load Project Global Data")
+        pass
+
+        # -------------------------------------------------------------
+        # Registration Complete?
+        # -------------------------------------------------------------
+
+        registration_status = get_registration_status(
+            self._project.project_json_path
+        )
+
+        registration_complete = (
+            registration_status == "COMPLETE"
+        )
+
+        print(
+            f"[OPEN PROJECT] Registration Complete? "
+            f"→ {'Y' if registration_complete else 'N'}"
+        )
+
+        if not registration_complete:
+
+            # ---------------------------------------------------------
+            # Registration path — skeleton for now.
+            # ---------------------------------------------------------
+
+            print("[STUB] Resume Registration")
+            pass
+
+        # -------------------------------------------------------------
+        # Acquisition Complete?
+        # -------------------------------------------------------------
+
+        download_status = get_download_status(
+            self._project.project_json_path
+        )
+
+        download_complete = (
+            download_status == "COMPLETE"
+        )
+
+        print(
+            f"[OPEN PROJECT] Acquisition Complete? "
+            f"→ {'Y' if download_complete else 'N'}"
+        )
+
+        if not download_complete:
+
+            # ---------------------------------------------------------
+            # Acquisition path — skeleton for now.
+            # ---------------------------------------------------------
+
+            print("[STUB] Resume Acquisition")
+            pass
+
+        # -------------------------------------------------------------
+        # Auth System Open?
+        # -------------------------------------------------------------
+
+        auth_system_open = False
+
+        print(
+            f"[OPEN PROJECT] Auth System Open? "
+            f"→ {'Y' if auth_system_open else 'N'}"
+        )
+
+        if auth_system_open:
+
+            print("[STUB] Close Auth System")
+            pass
+
+        # -----------------------------------------------------------------
+        # Complete Importing
+        # -----------------------------------------------------------------
+
+        registered, present = get_photo_availability(
+            self._project.project_json_path
+        )
+
+        self._window_manager.set_workflow_stage_status(
+            WorkflowStage.IMPORTING,
+            StageStatus.COMPLETED,
+        )
+
+        self._window_manager.set_workflow_stage_result(
+            WorkflowStage.IMPORTING,
+            f"Reg: {registered}   Avail: {present}",
+        )
+
+        # -----------------------------------------------------------------
+        # Enter Editing
+        # -----------------------------------------------------------------
+
+        self._set_state(
+            ApplicationState.EDITING,
+        )
+
+        self._window_manager.set_workflow_stage_status(
+            WorkflowStage.EDITING,
+            StageStatus.IN_PROGRESS,
+        )
+
+        # -----------------------------------------------------------------
+        # Clear Project Selection Activity
+        # -----------------------------------------------------------------
+
+        self._window_manager.clear_activity()
+
+        # -------------------------------------------------------------
+        # Open Photo
+        # -------------------------------------------------------------
+
+        print("[OPEN PROJECT] Open Photo")
+
         self._load_current_photo()
-        
+    
     # -----------------------------------------------------------------
     # Load Current Photo
     # -----------------------------------------------------------------
@@ -605,6 +742,21 @@ class Orchestrator:
         print(
             f"Has Coordinates  : "
             f"{photo_edit_data.has_coordinates}"
+        )
+
+        # -------------------------------------------------------------
+        # Present Editor Activity
+        # -------------------------------------------------------------
+
+        self._window_manager.present_editor_activity(
+            image_path=photo_edit_data.file,
+            event=photo_edit_data.event,
+            year=photo_edit_data.year,
+            location=photo_edit_data.location,
+            info=photo_edit_data.info,
+            photo_number=self._project_global.current_photo,
+            total_photos=self._project_global.photo_count,
+            maps_available=photo_edit_data.has_coordinates,
         )
 
     # -----------------------------------------------------------------

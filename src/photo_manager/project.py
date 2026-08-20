@@ -517,9 +517,13 @@ def get_project_global(
         )
     )
 
+    workspace = data["workspace"]
+
     photo_count = len(
         data["photos"]
     )
+    source = workspace["source"]
+    source_title = workspace["source_title"]
 
     metadata_data = data["metadata_policies"]
 
@@ -546,11 +550,121 @@ def get_project_global(
         ),
     )
 
+    logger.debug(
+        "Project global data: photos=%d, source=%s, source_title=%s",
+        photo_count,
+        source,
+        source_title,
+    )
+
     return (
         photo_count,
         metadata_policies,
+        source,
+        source_title,
     )
-    
+# ---------------------------------------------------------------------
+# Get Registration Status
+# ---------------------------------------------------------------------
+
+def get_registration_status(
+    project_json_path: Path,
+) -> str:
+    """
+    Return the current project registration status.
+
+    The project.json file is read each time so that the returned
+    information reflects the current authoritative project state.
+    """
+
+    logger.debug(
+        "Loading registration status: %s",
+        project_json_path,
+    )
+
+    data = json.loads(
+        project_json_path.read_text(
+            encoding="utf-8"
+        )
+    )
+
+    return data["workspace"]["registration_status"]
+
+
+# ---------------------------------------------------------------------
+# Get Download Status
+# ---------------------------------------------------------------------
+
+def get_download_status(
+    project_json_path: Path,
+) -> str:
+    """
+    Return the current project download status.
+
+    The project.json file is read each time so that the returned
+    information reflects the current authoritative project state.
+    """
+
+    logger.debug(
+        "Loading download status: %s",
+        project_json_path,
+    )
+
+    data = json.loads(
+        project_json_path.read_text(
+            encoding="utf-8"
+        )
+    )
+
+    return data["workspace"]["download_status"]    
+
+# ---------------------------------------------------------------------
+# Get Photo Availability
+# ---------------------------------------------------------------------
+
+def get_photo_availability(
+    project_json_path: Path,
+) -> tuple[int, int]:
+    """
+    Return the number of registered photo records and the number
+    currently available locally.
+
+    Registered is the total number of photo records in project.json.
+    Present is the number of records with downloaded=True.
+
+    The values are derived from the current photo records so they
+    remain valid even if registration or downloading was interrupted.
+    """
+
+    logger.debug(
+        "Loading photo availability: %s",
+        project_json_path,
+    )
+
+    data = json.loads(
+        project_json_path.read_text(
+            encoding="utf-8"
+        )
+    )
+
+    photos = data["photos"]
+
+    registered = len(photos)
+
+    present = sum(
+        1
+        for photo in photos
+        if photo["downloaded"] is True
+    )
+
+    logger.debug(
+        "Photo availability: registered=%d, present=%d",
+        registered,
+        present,
+    )
+
+    return registered, present
+
 # ---------------------------------------------------------------------
 # Discover Available Projects
 # ---------------------------------------------------------------------

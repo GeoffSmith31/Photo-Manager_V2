@@ -63,3 +63,7 @@ The communications interfaces are intentionally asynchronous. Commands issued us
 Asset registration is a distinct phase that SHALL complete before asset acquisition begins.
 
 Photo Manager shall minimise complexity for two audiences: end users and extension developers.
+
+STATE MACHINES
+
+The Photo Manager has two independent but related state machines. The Orchestrator State represents the application's current operational state. The Workflow Stage represents the project's progress through the overall workflow. Both are controlled by the Orchestrator. A change in one does not necessarily imply an immediate change in the other.

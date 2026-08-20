@@ -35,6 +35,7 @@ The Window Manager controls what information is displayed
 and monitors user interaction with the GUI.
 """
 
+from pathlib import Path
 from PySide6.QtCore import (
     Qt,
     Signal,
@@ -62,6 +63,8 @@ from photo_manager.project_selection import (
 from photo_manager.project_selection_widget import (
     ProjectSelectionWidget,
 )
+
+from photo_manager.editor_activity import EditorActivity
 
 # ---------------------------------------------------------------------
 # Workflow Stage Panel
@@ -542,6 +545,43 @@ class ControlTower(QMainWindow):
         )
 
     # -----------------------------------------------------------------
+    # Set Editor Activity
+    # -----------------------------------------------------------------
+
+    def set_editor_activity(
+        self,
+        image_path: Path,
+        event: str,
+        year: str,
+        location: str,
+        info: str,
+        photo_number: int,
+        total_photos: int,
+        maps_available: bool,
+    ) -> None:
+        """
+        Display the Editor Activity for the current photo.
+        """
+
+        editor_activity = EditorActivity()
+
+        editor_activity.display_photo(
+            image_path=image_path,
+            event=event,
+            year=year,
+            location=location,
+            info=info,
+            photo_number=photo_number,
+            total_photos=total_photos,
+            maps_available=maps_available,
+        )
+
+        self._activity_layout.addWidget(
+            editor_activity,
+            1,
+        )
+
+    # -----------------------------------------------------------------
     # Create Activity Panel
     # -----------------------------------------------------------------
 
@@ -604,6 +644,25 @@ class ControlTower(QMainWindow):
         self._activity_title.setText(
             title
         )      
+
+    # -----------------------------------------------------------------
+    # Clear Activity
+    # -----------------------------------------------------------------
+
+    def clear_activity(self) -> None:
+        """
+        Remove the current activity from the Activity panel.
+
+        The Activity title is retained.
+        """
+
+        while self._activity_layout.count() > 1:
+            item = self._activity_layout.takeAt(1)
+
+            widget = item.widget()
+
+            if widget is not None:
+                widget.deleteLater()
 
     # -----------------------------------------------------------------
     # Create Status Panel

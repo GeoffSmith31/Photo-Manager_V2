@@ -139,8 +139,8 @@ class EditorActivity(QWidget):
         )
 
         self._photo_frame.setMinimumSize(
-            400,
-            300,
+            200,
+            150,
         )
 
         self._photo_frame.setAlignment(
@@ -758,7 +758,7 @@ class EditorActivity(QWidget):
         # -------------------------------------------------------------
 
         self._photo_number.setText(
-            f"Photo {photo_number} of {total_photos}"
+            f"Photo {photo_number + 1} of {total_photos}"
         )
 
         # -------------------------------------------------------------
@@ -908,6 +908,13 @@ if __name__ == "__main__":
     )
 
     editor.show()
+    
+    print(
+        "Editor minimum size:",
+        editor.minimumSizeHint().width(),
+        "x",
+        editor.minimumSizeHint().height(),
+    )
 
     editor.display_photo(
         image_path=Path(

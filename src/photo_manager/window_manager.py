@@ -352,6 +352,58 @@ class WindowManager:
             project_records
         )
 
+    # -------------------------------------------------------------
+    # Clear Activity
+    # -------------------------------------------------------------
+
+    def clear_activity(self) -> None:
+        """
+        Clear the current activity from the Control Tower.
+        """
+
+        logger.debug(
+            "Clearing current Activity."
+        )
+
+        self._control_tower.clear_activity()
+
+    # -------------------------------------------------------------
+    # Present Editor Activity
+    # -------------------------------------------------------------
+
+    def present_editor_activity(
+        self,
+        image_path: Path,
+        event: str,
+        year: str,
+        location: str,
+        info: str,
+        photo_number: int,
+        total_photos: int,
+        maps_available: bool,
+    ) -> None:
+        """
+        Present the Editor Activity to the user.
+        """
+
+        logger.debug(
+            "Presenting Editor Activity."
+        )
+
+        self._control_tower.set_activity_title(
+            "PHOTO EDITOR"
+        )
+
+        self._control_tower.set_editor_activity(
+            image_path=image_path,
+            event=event,
+            year=year,
+            location=location,
+            info=info,
+            photo_number=photo_number,
+            total_photos=total_photos,
+            maps_available=maps_available,
+        )
 
     # -------------------------------------------------------------
     # Show Control Tower
