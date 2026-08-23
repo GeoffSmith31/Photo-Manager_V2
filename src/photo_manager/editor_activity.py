@@ -15,6 +15,7 @@ Provides the graphical interface for editing photo metadata.
 """
 
 from pathlib import Path
+import logging
 
 from PySide6.QtCore import (
     QSize,
@@ -77,7 +78,12 @@ class InfoTextEdit(QTextEdit):
         )
 
 
+logger = logging.getLogger("Editor Activity")
+
+
 class EditorActivity(QWidget):
+
+    action_requested = Signal(str)
     """
     Photo Manager photo editor activity.
 
@@ -405,16 +411,41 @@ class EditorActivity(QWidget):
             "Save && Next"
         )
 
-        self._save_button.setMinimumHeight(
-            40
-        )
-
         metadata_layout.addWidget(
             self._save_button,
             4,
             1,
             
         )
+
+        # -------------------------------------------------------------
+        # Project Actions
+        # -------------------------------------------------------------
+
+        project_action_layout = QHBoxLayout()
+
+        self._propagation_button = QPushButton(
+            "Propagation Settings"
+        )
+
+        self._change_project_button = QPushButton(
+            "Change Project"
+        )
+
+        project_action_layout.addWidget(
+            self._propagation_button
+        )
+
+        project_action_layout.addWidget(
+            self._change_project_button
+        )
+
+        metadata_layout.addLayout(
+            project_action_layout,
+            5,
+            1,
+        )
+
 
         editor_layout.addWidget(
             metadata_group,
@@ -615,6 +646,14 @@ class EditorActivity(QWidget):
             self._maps_requested
         )
 
+        self._propagation_button.clicked.connect(
+            self._propagation_settings
+        )
+
+        self._change_project_button.clicked.connect(
+            self._change_project
+        )
+
         self._info_field.enter_pressed.connect(
             self._save_and_next
         )
@@ -781,50 +820,105 @@ class EditorActivity(QWidget):
 
     def _save_and_next(self) -> None:
 
-        print(
-            "SAVE & NEXT"
+        logger.debug(
+            "SAVE & NEXT requested."
+        )
+
+        self.action_requested.emit(
+            "Save & Next"
         )
 
     def _back(self) -> None:
 
-        print(
-            "BACK"
+        logger.debug(
+            "BACK requested."
+        )
+
+        self.action_requested.emit(
+            "Back"
         )
 
     def _forward(self) -> None:
 
-        print(
-            "FORWARD"
+        logger.debug(
+            "FORWARD requested."
+        )
+
+        self.action_requested.emit(
+            "Forward"
         )
 
     def _goto_photo(self) -> None:
 
-        print(
-            f"GOTO: {self._goto_field.text()}"
+        requested_photo = self._goto_field.text().strip()
+
+        logger.debug(
+            "GOTO requested: %s",
+            requested_photo,
+        )
+
+        self.action_requested.emit(
+            f"Goto:{requested_photo}"
         )
 
     def _search(self) -> None:
 
-        print(
-            "SEARCH"
+        logger.debug(
+            "SEARCH requested."
+        )
+
+        self.action_requested.emit(
+            "Search"
         )
 
     def _search_previous(self) -> None:
 
-        print(
-            "SEARCH PREVIOUS"
+        logger.debug(
+            "SEARCH PREVIOUS requested."
+        )
+
+        self.action_requested.emit(
+            "Search Previous"
         )
 
     def _search_next(self) -> None:
 
-        print(
-            "SEARCH NEXT"
+        logger.debug(
+            "SEARCH NEXT requested."
+        )
+
+        self.action_requested.emit(
+            "Search Next"
         )
 
     def _maps_requested(self) -> None:
 
-        print(
-            "MAPS REQUESTED"
+        logger.debug(
+            "MAPS requested."
+        )
+
+        self.action_requested.emit(
+            "Maps"
+        )
+
+    def _propagation_settings(self) -> None:
+
+        logger.debug(
+            "PROPAGATION SETTINGS requested."
+        )
+
+        self.action_requested.emit(
+            "Propagation Settings"
+        )
+
+    def _change_project(self) -> None:
+
+        logger.debug(
+            "CHANGE PROJECT requested."
+        )
+
+        self.action_requested.emit(
+            "Change Project"
         )
 
     # -----------------------------------------------------------------

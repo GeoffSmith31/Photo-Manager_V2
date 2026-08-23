@@ -122,8 +122,8 @@ def get_photo_edit_data(
     )
 
     has_coordinates = (
-        photo.get("latitude") is not None
-        and photo.get("longitude") is not None
+        photo.get("lat") is not None
+        and photo.get("lng") is not None
     )
 
     return PhotoEditData(

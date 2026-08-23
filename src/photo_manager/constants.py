@@ -25,6 +25,7 @@ Provides application-wide constants
 
 
 """
+from pathlib import Path
 
 # -----------------------------------------------------------------
 # Application Identity
@@ -37,6 +38,29 @@ APPLICATION_ID = "photo_manager"
 APPLICATION_ORGANISATION = "Photo Manager"
 
 APPLICATION_AUTHOR = "Geoff"
+
+
+# -----------------------------------------------------------------
+# Application Directories
+# -----------------------------------------------------------------
+
+APPLICATION_CONFIG_DIRECTORY = (
+    Path.home()
+    / ".config"
+    / APPLICATION_ID
+)
+
+APPLICATION_DATA_DIRECTORY = (
+    Path.home()
+    / ".local"
+    / "share"
+    / APPLICATION_ID
+)
+
+APPLICATION_LOG_DIRECTORY = (
+    APPLICATION_DATA_DIRECTORY
+    / "logs"
+)
 
 # -----------------------------------------------------------------
 # Project File

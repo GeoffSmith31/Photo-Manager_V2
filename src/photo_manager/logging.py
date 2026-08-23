@@ -38,13 +38,15 @@ The application specifies only the directory in which log files are stored.
 from pathlib import Path
 import logging
 from logging.handlers import RotatingFileHandler
-from photo_manager.constants import LOG_FILENAME
+from photo_manager.constants import (
+    APPLICATION_ID,
+)
 
 # ---------------------------------------------------------------------
 # Logging Configuration
 # ---------------------------------------------------------------------
 
-_LOG_FILE_NAME = LOG_FILENAME
+_LOG_FILE_NAME = f"{APPLICATION_ID}.log"
 
 _KB = 1024
 _MB = 1024 * _KB
@@ -73,7 +75,7 @@ __all__ = [
 def configure_logging(
     level: int,
     log_directory: Path | None = None,
-    console_logging: bool = True,
+    console_logging: bool = False,
 ) -> None:
     """
     Configure the Photo Manager logging service.

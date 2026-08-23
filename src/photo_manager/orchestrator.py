@@ -46,6 +46,7 @@ from PySide6.QtWidgets import QApplication
 from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
+import argparse
 import logging
 import os
 from photo_manager.logging import (
@@ -55,6 +56,9 @@ from photo_manager.logging import (
 from photo_manager.settings import (
     Settings,
     load_settings,
+)
+from photo_manager.constants import (
+    APPLICATION_LOG_DIRECTORY,
 )
 from photo_manager.project import (
     MetadataPolicies,
@@ -131,7 +135,10 @@ class Orchestrator:
     Coordinates the operation of the Photo Manager application.
     """
 
-    def __init__(self):
+    def __init__(
+        self,
+        settings: Settings,
+    ):
         """
         Initialise the Orchestrator.
         """
@@ -143,7 +150,7 @@ class Orchestrator:
         self._previous_state = ApplicationState.STARTING
 
         # Current application settings.
-        self._settings = None
+        self._settings = settings
 
         # Active workspace.
         self._workspace = None
@@ -154,6 +161,10 @@ class Orchestrator:
 
         self._window_manager.set_project_selected_callback(
             self._project_selected
+        )
+
+        self._window_manager.set_action_requested_callback(
+            self._action_requested
         )
 
         # Active project.
@@ -281,7 +292,6 @@ class Orchestrator:
         logger.debug(
         "Loading application settings."
         )
-        self._settings = load_settings()
 
         logger.debug(
             "Application settings loaded."
@@ -510,30 +520,23 @@ class Orchestrator:
             f"{self._project_global.source_title}",
         )
 
-        print()
-        print("PROJECT GLOBAL DATA")
-        print("-" * 72)
-        print(
-            f"Photo Count      : "
-            f"{self._project_global.photo_count}"
+        logger.debug(
+            "Project global data: photos=%s, metadata_policies=%s",
+            self._project_global.photo_count,
+            self._project_global.metadata_policies,
         )
-        print(
-            f"Metadata Policies: "
-            f"{self._project_global.metadata_policies}"
-        )        
 
-        print()
-        print("=" * 72)
-        print("PROJECT SELECTED")
-        print("=" * 72)
-        print()
-        print(f"Index        : {index}")
-        print(f"Project Name : {record.project_name}")
-        print(f"Project JSON : {record.project_json_path}")
-        print(f"Image Folder : {record.image_folder}")
-        print(f"Thumbnail    : {record.thumbnail_path}")
-        print(f"New Project  : {record.is_new_project}")
-        print(f"Valid        : {record.valid}")
+        logger.debug(
+            "Project selected: index=%s, name=%s, json=%s, "
+            "image_folder=%s, thumbnail=%s, new_project=%s, valid=%s",
+            index,
+            record.project_name,
+            record.project_json_path,
+            record.image_folder,
+            record.thumbnail_path,
+            record.is_new_project,
+            record.valid,
+        )
         
         self._open_project()
     
@@ -553,23 +556,26 @@ class Orchestrator:
             "Opening project: %s",
             self._project.project_name,
         )
-        print()
-        print("=" * 72)
-        print("OPEN PROJECT")
-        print("=" * 72)
+        logger.info(
+            "Opening project workflow."
+        )
 
         # -------------------------------------------------------------
         # Receive Project Information
         # -------------------------------------------------------------
 
-        print("[OPEN PROJECT] Receive Project Information")
+        logger.debug(
+            "[OPEN PROJECT] Receive Project Information."
+        )
         pass
 
         # -------------------------------------------------------------
         # Load Project Global Data
         # -------------------------------------------------------------
 
-        print("[OPEN PROJECT] Load Project Global Data")
+        logger.debug(
+            "[OPEN PROJECT] Load Project Global Data."
+        )
         pass
 
         # -------------------------------------------------------------
@@ -584,9 +590,9 @@ class Orchestrator:
             registration_status == "COMPLETE"
         )
 
-        print(
-            f"[OPEN PROJECT] Registration Complete? "
-            f"→ {'Y' if registration_complete else 'N'}"
+        logger.debug(
+            "[OPEN PROJECT] Registration complete: %s",
+            registration_complete,
         )
 
         if not registration_complete:
@@ -595,7 +601,9 @@ class Orchestrator:
             # Registration path — skeleton for now.
             # ---------------------------------------------------------
 
-            print("[STUB] Resume Registration")
+            logger.debug(
+                "[STUB] Resume Registration."
+            )
             pass
 
         # -------------------------------------------------------------
@@ -610,9 +618,9 @@ class Orchestrator:
             download_status == "COMPLETE"
         )
 
-        print(
-            f"[OPEN PROJECT] Acquisition Complete? "
-            f"→ {'Y' if download_complete else 'N'}"
+        logger.debug(
+            "[OPEN PROJECT] Acquisition complete: %s",
+            download_complete,
         )
 
         if not download_complete:
@@ -621,7 +629,9 @@ class Orchestrator:
             # Acquisition path — skeleton for now.
             # ---------------------------------------------------------
 
-            print("[STUB] Resume Acquisition")
+            logger.debug(
+                "[STUB] Resume Acquisition."
+            )
             pass
 
         # -------------------------------------------------------------
@@ -630,14 +640,16 @@ class Orchestrator:
 
         auth_system_open = False
 
-        print(
-            f"[OPEN PROJECT] Auth System Open? "
-            f"→ {'Y' if auth_system_open else 'N'}"
+        logger.debug(
+            "[OPEN PROJECT] Auth system open: %s",
+            auth_system_open,
         )
 
         if auth_system_open:
 
-            print("[STUB] Close Auth System")
+            logger.debug(
+                "[STUB] Close Auth System."
+            )
             pass
 
         # -----------------------------------------------------------------
@@ -681,7 +693,9 @@ class Orchestrator:
         # Open Photo
         # -------------------------------------------------------------
 
-        print("[OPEN PROJECT] Open Photo")
+        logger.debug(
+            "[OPEN PROJECT] Open Photo."
+        )
 
         self._load_current_photo()
     
@@ -716,32 +730,15 @@ class Orchestrator:
             self._project_global.current_photo,
         )
 
-        print()
-        print("PHOTO EDIT DATA")
-        print("-" * 72)
-        print(
-            f"File             : "
-            f"{photo_edit_data.file}"
-        )
-        print(
-            f"Event            : "
-            f"{photo_edit_data.event}"
-        )
-        print(
-            f"Year             : "
-            f"{photo_edit_data.year}"
-        )
-        print(
-            f"Location         : "
-            f"{photo_edit_data.location}"
-        )
-        print(
-            f"Info             : "
-            f"{photo_edit_data.info}"
-        )
-        print(
-            f"Has Coordinates  : "
-            f"{photo_edit_data.has_coordinates}"
+        logger.debug(
+            "Photo edit data: file=%s, event=%s, year=%s, "
+            "location=%s, info=%s, has_coordinates=%s",
+            photo_edit_data.file,
+            photo_edit_data.event,
+            photo_edit_data.year,
+            photo_edit_data.location,
+            photo_edit_data.info,
+            photo_edit_data.has_coordinates,
         )
 
         # -------------------------------------------------------------
@@ -797,47 +794,256 @@ class Orchestrator:
         return self._window_manager.select_directory(
             title="Select Workspace",
         )
-        
+
+    # -----------------------------------------------------------------
+    # Action Requested
+    # -----------------------------------------------------------------
+
+    def _action_requested(
+        self,
+        action: str,
+    ) -> None:
+        """
+        Handle an action requested by the user.
+
+        The meaning of an action is determined by the
+        current Orchestrator state.
+        """
+
+        logger.debug(
+            "User action requested: %s",
+            action,
+        )
+
+        if action == "Cancel":
+            logger.info(
+                "Cancel requested."
+            )
+
+        elif action == "Retry":
+            logger.info(
+                "Retry requested."
+            )
+
+        elif action == "Change Project":
+            logger.info(
+                "Change Project requested."
+            )
+
+        elif action == "Finalise":
+            logger.info(
+                "Finalise requested."
+            )
+
+        elif action == "Back":
+            self._navigate_back()
+
+        elif action == "Forward":
+            self._navigate_forward()
+            
+        elif action.startswith("Goto:"):
+            requested_photo = action[5:]
+
+            self._goto_photo(
+                requested_photo
+            )
+            
+    # -----------------------------------------------------------------
+    # Editor Navigation
+    # -----------------------------------------------------------------
+
+    def _navigate_back(self) -> None:
+        """
+        Move to the previous photo in the active project.
+        """
+
+        if self._project_global is None:
+            logger.error(
+                "Cannot navigate back: no project is active."
+            )
+            return
+
+        if self._project_global.current_photo <= 0:
+            logger.debug(
+                "Back requested at first photo; ignoring."
+            )
+            return
+
+        self._project_global.current_photo -= 1
+
+        logger.debug(
+            "Navigating back to photo %s.",
+            self._project_global.current_photo + 1,
+        )
+
+        self._window_manager.clear_activity()
+        self._load_current_photo()
+
+    # -----------------------------------------------------------------
+
+    def _navigate_forward(self) -> None:
+        """
+        Move to the next photo in the active project.
+        """
+
+        if self._project_global is None:
+            logger.error(
+                "Cannot navigate forward: no project is active."
+            )
+            return
+
+        last_photo = (
+            self._project_global.photo_count - 1
+        )
+
+        if self._project_global.current_photo >= last_photo:
+            logger.debug(
+                "Forward requested at last photo; ignoring."
+            )
+            return
+
+        self._project_global.current_photo += 1
+
+        logger.debug(
+            "Navigating forward to photo %s.",
+            self._project_global.current_photo + 1,
+        )
+
+        self._window_manager.clear_activity()
+        self._load_current_photo()
+
+    # -----------------------------------------------------------------
+    # Editor Goto
+    # -----------------------------------------------------------------
+
+    def _goto_photo(
+        self,
+        requested_photo: str,
+    ) -> None:
+        """
+        Navigate to a photo specified by the user.
+        """
+
+        if self._project_global is None:
+            logger.error(
+                "Cannot goto photo: no project is active."
+            )
+            return
+
+        try:
+            photo_number = int(
+                requested_photo
+            )
+        except ValueError:
+            logger.debug(
+                "Invalid GOTO value: %r",
+                requested_photo,
+            )
+            return
+
+        total_photos = (
+            self._project_global.photo_count
+        )
+
+        if photo_number < 1 or photo_number > total_photos:
+            logger.debug(
+                "GOTO photo number out of range: %d "
+                "(valid range 1-%d).",
+                photo_number,
+                total_photos,
+            )
+            return
+
+        self._project_global.current_photo = (
+            photo_number - 1
+        )
+
+        logger.debug(
+            "Navigating to photo %d.",
+            photo_number,
+        )
+
+        self._window_manager.clear_activity()
+
+        self._load_current_photo()
+
 # ============================================================================
 # Standalone Test Harness
 # ============================================================================
 
 if __name__ == "__main__":
 
+    parser = argparse.ArgumentParser(
+        description="Photo Manager"
+    )
+
+    parser.add_argument(
+        "--dev",
+        action="store_true",
+        help="Enable development logging.",
+    )
+
+    args = parser.parse_args()
+
+    # -------------------------------------------------------------
+    # Load application settings
+    # -------------------------------------------------------------
+
+    settings = load_settings()
+
+    # -------------------------------------------------------------
+    # Configure logging
+    # -------------------------------------------------------------
+
+    if args.dev:
+        logging_level = logging.DEBUG
+        console_logging = True
+    else:
+        logging_level = settings.logging_level
+        console_logging = False
+
     configure_logging(
-        level=logging.DEBUG,
-        console_logging=True,
+        level=logging_level,
+        log_directory=APPLICATION_LOG_DIRECTORY,
+        console_logging=console_logging,
     )
 
     application = QApplication(
         sys.argv
     )
 
-    orchestrator = Orchestrator()
+    orchestrator = Orchestrator(
+        settings=settings,
+    )
 
     orchestrator._window_manager.show_control_tower()
 
     orchestrator.startup()
+
+    # Existing test-harness code follows...
     
-    print()
-    print("=" * 72)
-    print("PROJECT SELECTION RECORDS")
-    print("=" * 72)
+    logger.debug(
+        "Project selection records:"
+    )
 
     for index, record in enumerate(
         orchestrator._project_records
     ):
-        print()
-        print(f"[{index}]")
-        print(f"  Project Name : {record.project_name}")
-        print(f"  Project JSON : {record.project_json_path}")
-        print(f"  Image Folder : {record.image_folder}")
-        print(f"  Thumbnail    : {record.thumbnail_path}")
-        print(f"  New Project  : {record.is_new_project}")
-        print(f"  Valid        : {record.valid}")
+        logger.debug(
+            "  [%s] name=%s, json=%s, image_folder=%s, "
+            "thumbnail=%s, new_project=%s, valid=%s",
+            index,
+            record.project_name,
+            record.project_json_path,
+            record.image_folder,
+            record.thumbnail_path,
+            record.is_new_project,
+            record.valid,
+        )
 
-    print(
-        f"Current State : {orchestrator.state.name}"
+    logger.debug(
+        "Current state: %s",
+        orchestrator.state.name,
     )
 
     application.exec()

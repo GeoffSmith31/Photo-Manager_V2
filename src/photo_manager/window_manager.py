@@ -96,9 +96,14 @@ class WindowManager:
         self._control_tower = ControlTower()
         
         self._project_selected_callback = None
+        self._action_requested_callback = None
 
         self._control_tower.project_selected.connect(
             self._handle_project_selected
+        )
+
+        self._control_tower.action_requested.connect(
+            self._handle_action_requested
         )
     # -------------------------------------------------------------
     # Discover Screens
@@ -172,6 +177,20 @@ class WindowManager:
         self._project_selected_callback = callback
         
     # -------------------------------------------------------------
+    # Set Action Requested Callback
+    # -------------------------------------------------------------
+
+    def set_action_requested_callback(
+        self,
+        callback,
+    ) -> None:
+        """
+        Set the callback invoked when the user requests an action.
+        """
+
+        self._action_requested_callback = callback
+
+    # -------------------------------------------------------------
     # Handle Project Selection
     # -------------------------------------------------------------
 
@@ -187,6 +206,24 @@ class WindowManager:
 
             self._project_selected_callback(
                 index
+            )
+
+    # -------------------------------------------------------------
+    # Handle Action Requested
+    # -------------------------------------------------------------
+
+    def _handle_action_requested(
+        self,
+        action: str,
+    ) -> None:
+        """
+        Forward a requested user action to the application.
+        """
+
+        if self._action_requested_callback is not None:
+
+            self._action_requested_callback(
+                action
             )
 
     # -------------------------------------------------------------
@@ -238,6 +275,10 @@ class WindowManager:
         self._control_tower.set_workflow_stage_status(
             stage,
             status,
+        )
+
+        self._control_tower.set_workflow_actions(
+            stage,
         )
 
     # -------------------------------------------------------------

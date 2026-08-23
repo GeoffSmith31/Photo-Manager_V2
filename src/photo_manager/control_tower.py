@@ -220,6 +220,7 @@ class ControlTower(QMainWindow):
     Main Photo Manager application window.
     """
     project_selected = Signal(int)
+    action_requested = Signal(str)
     
     # -----------------------------------------------------------------
     # Constructor
@@ -565,6 +566,10 @@ class ControlTower(QMainWindow):
 
         editor_activity = EditorActivity()
 
+        editor_activity.action_requested.connect(
+            self.action_requested.emit
+        )
+
         editor_activity.display_photo(
             image_path=image_path,
             event=event,
@@ -752,9 +757,9 @@ class ControlTower(QMainWindow):
         )
 
         layout.setContentsMargins(
-            8,
+            96,
             4,
-            8,
+            96,
             4,
         )
 
@@ -774,11 +779,34 @@ class ControlTower(QMainWindow):
         )
 
         # -------------------------------------------------------------
-        # Spacer
+        # Left/Centre Spacer
         # -------------------------------------------------------------
 
         layout.addStretch(
-            1
+            1,
+        )
+
+        # -------------------------------------------------------------
+        # Centre Action Area
+        # -------------------------------------------------------------
+
+        self._centre_action_layout = QHBoxLayout()
+
+        self._centre_action_layout.setSpacing(
+            6
+        )
+
+        layout.addLayout(
+            self._centre_action_layout,
+            0,
+        )
+
+        # -------------------------------------------------------------
+        # Centre/Right Spacer
+        # -------------------------------------------------------------
+
+        layout.addStretch(
+            1,
         )
 
         # -------------------------------------------------------------
@@ -798,6 +826,77 @@ class ControlTower(QMainWindow):
 
         return panel
 
+    # -----------------------------------------------------------------
+    # Set Workflow Actions
+    # -----------------------------------------------------------------
+
+    def set_workflow_actions(
+        self,
+        stage: WorkflowStage,
+    ) -> None:
+        """
+        Display the common Action Bar controls appropriate to the
+        current Workflow Stage.
+
+        Cancel, Settings and Help are always available.
+        Finalise becomes available once a project has been selected.
+        Activity-specific controls are owned by the activity widget.
+        """
+
+        for action_layout in (
+            self._left_action_layout,
+            self._centre_action_layout,
+            self._right_action_layout,
+        ):
+            while action_layout.count():
+                item = action_layout.takeAt(0)
+                widget = item.widget()
+
+                if widget is not None:
+                    widget.deleteLater()
+
+        left_actions = ["Cancel"]
+        centre_actions = ["Settings", "Help"]
+        right_actions = []
+
+        if stage not in (
+            WorkflowStage.INITIALISATION,
+            WorkflowStage.PROJECT_SELECTION,
+            WorkflowStage.SOURCE_SELECTION,
+        ):
+            right_actions.append("Finalise")
+
+        def add_action_button(
+            action: str,
+            layout: QHBoxLayout,
+        ) -> None:
+
+            button = QPushButton(action)
+
+            button.clicked.connect(
+                lambda checked=False, action=action:
+                    self.action_requested.emit(action)
+            )
+
+            layout.addWidget(button)
+
+        for action in left_actions:
+            add_action_button(action, self._left_action_layout)
+
+        for index, action in enumerate(centre_actions):
+
+            add_action_button(
+                action,
+                self._centre_action_layout,
+            )
+
+            if index == 0:
+                self._centre_action_layout.addSpacing(
+                    200
+                )
+
+        for action in right_actions:
+            add_action_button(action, self._right_action_layout)
 
 # ============================================================================
 # Standalone Test Harness
@@ -822,6 +921,11 @@ if __name__ == "__main__":
             )
     )    
 
+    control_tower.set_workflow_actions(
+#        WorkflowStage.PROJECT_SELECTION
+        WorkflowStage.IMPORTING
+#        WorkflowStage.EDITING
+    )
     control_tower.show()
 
     sys.exit(
