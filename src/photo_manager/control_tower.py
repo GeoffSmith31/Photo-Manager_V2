@@ -220,7 +220,7 @@ class ControlTower(QMainWindow):
     Main Photo Manager application window.
     """
     project_selected = Signal(int)
-    action_requested = Signal(str)
+    action_requested = Signal(str, object)
     
     # -----------------------------------------------------------------
     # Constructor
@@ -559,6 +559,8 @@ class ControlTower(QMainWindow):
         photo_number: int,
         total_photos: int,
         maps_available: bool,
+        find_criterion: str | None = None,
+        find_text: str | None = None,
     ) -> None:
         """
         Display the Editor Activity for the current photo.
@@ -579,6 +581,8 @@ class ControlTower(QMainWindow):
             photo_number=photo_number,
             total_photos=total_photos,
             maps_available=maps_available,
+            find_criterion=find_criterion,
+            find_text=find_text,
         )
 
         self._activity_layout.addWidget(
@@ -875,7 +879,10 @@ class ControlTower(QMainWindow):
 
             button.clicked.connect(
                 lambda checked=False, action=action:
-                    self.action_requested.emit(action)
+                    self.action_requested.emit(
+                        action,
+                        None,
+                    )
             )
 
             layout.addWidget(button)

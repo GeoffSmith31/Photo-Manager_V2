@@ -42,6 +42,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+USER_COMMENT_ALLOWED_CHARACTERS = frozenset(
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    "abcdefghijklmnopqrstuvwxyz"
+    "0123456789"
+    " .,'\"-()[]/&+=?!%@_*:#"
+)
+
 class InfoTextEdit(QTextEdit):
     """
     QTextEdit used by the Editor Info field.
@@ -83,7 +90,7 @@ logger = logging.getLogger("Editor Activity")
 
 class EditorActivity(QWidget):
 
-    action_requested = Signal(str)
+    action_requested = Signal(str, object)
     """
     Photo Manager photo editor activity.
 
@@ -457,32 +464,17 @@ class EditorActivity(QWidget):
             1,
         )
 
+
         # =============================================================
-        # Search
+        # Find
         # =============================================================
 
-        search_group = QGroupBox(
-            "Search"
+        find_group = QGroupBox(
+            "Find"
         )
 
         search_layout = QHBoxLayout(
-            search_group
-        )
-
-        search_layout.setSpacing(
-            8
-        )
-
-        # =============================================================
-        # Search
-        # =============================================================
-
-        search_group = QGroupBox(
-            "Search"
-        )
-
-        search_layout = QHBoxLayout(
-            search_group
+            find_group
         )
 
         search_layout.setSpacing(
@@ -490,7 +482,7 @@ class EditorActivity(QWidget):
         )
 
         # -------------------------------------------------------------
-        # Search Criterion
+        # Find Criterion
         # -------------------------------------------------------------
 
         self._search_criterion = QComboBox()
@@ -525,35 +517,27 @@ class EditorActivity(QWidget):
         )
 
         # -------------------------------------------------------------
-        # Search Buttons
+        # Find Buttons
         # -------------------------------------------------------------
 
-        self._search_button = QPushButton(
-            "Search"
-        )
-
-        self._search_button.setFixedWidth(
-            90
-        )
-
-        self._search_previous_button = QPushButton(
+        self._find_previous_button = QPushButton(
             "◀ Previous"
         )
 
-        self._search_previous_button.setFixedWidth(
+        self._find_previous_button.setFixedWidth(
             100
         )
 
-        self._search_next_button = QPushButton(
+        self._find_next_button = QPushButton(
             "Next ▶"
         )
 
-        self._search_next_button.setFixedWidth(
-            80
+        self._find_next_button.setFixedWidth(
+            100
         )
 
         # -------------------------------------------------------------
-        # Search Button Group
+        # Finf Button Group
         # -------------------------------------------------------------
 
         search_button_layout = QHBoxLayout()
@@ -570,15 +554,11 @@ class EditorActivity(QWidget):
         )
 
         search_button_layout.addWidget(
-            self._search_button
+            self._find_previous_button
         )
 
         search_button_layout.addWidget(
-            self._search_previous_button
-        )
-
-        search_button_layout.addWidget(
-            self._search_next_button
+            self._find_next_button
         )
 
         # -------------------------------------------------------------
@@ -599,7 +579,7 @@ class EditorActivity(QWidget):
         )
 
         main_layout.addWidget(
-            search_group
+            find_group
         )
 
         # -------------------------------------------------------------
@@ -630,16 +610,13 @@ class EditorActivity(QWidget):
             self._goto_photo
         )
 
-        self._search_button.clicked.connect(
-            self._search
+
+        self._find_previous_button.clicked.connect(
+            self._find_previous
         )
 
-        self._search_previous_button.clicked.connect(
-            self._search_previous
-        )
-
-        self._search_next_button.clicked.connect(
-            self._search_next
+        self._find_next_button.clicked.connect(
+            self._find_next
         )
 
         self._maps_button.clicked.connect(
@@ -718,6 +695,105 @@ class EditorActivity(QWidget):
             self._goto_photo
         )
 
+    # -------------------------------------------------------------
+    # Validate User Comment
+    # -------------------------------------------------------------    
+    
+    def _validate_user_comment_text(
+        self,
+        text: str,
+    ) -> str | None:
+        """
+        Return an error message if text contains an unsupported
+        UserComment character. Return None when valid.
+        """
+
+        for character in text:
+
+            if character == "|":
+                return (
+                    "The '|' character is reserved by Photo Manager "
+                    "and cannot be used."
+                )
+
+            if character not in USER_COMMENT_ALLOWED_CHARACTERS:
+                return (
+                    f"The character {character!r} "
+                    "is not supported in photo metadata."
+                )
+
+        return None
+
+    # -------------------------------------------------------------
+    # Validate User Input
+    # -------------------------------------------------------------  
+
+    def _validate_metadata_fields(
+        self,
+    ) -> bool:
+        """
+        Validate the four metadata fields before saving.
+
+        Returns True when all fields are valid.
+        """
+
+        fields = (
+            ("Event", self._event_field.text()),
+            ("Year", self._year_field.text()),
+            ("Location", self._location_field.text()),
+            ("Info", self._info_field.toPlainText()),
+        )
+
+        for field_name, value in fields:
+
+            error = self._validate_user_comment_text(
+                value
+            )
+
+            if error is not None:
+
+                logger.warning(
+                    "Invalid %s metadata: %s",
+                    field_name,
+                    error,
+                )
+
+                self._show_metadata_error(
+                    field_name,
+                    error,
+                )
+
+                return False
+
+        return True
+
+    # -------------------------------------------------------------
+    # Invalid Input warning
+    # ------------------------------------------------------------- 
+
+    def _show_metadata_error(
+        self,
+        field_name: str,
+        error: str,
+    ) -> None:
+
+        logger.info(
+            f"User Input Validation Failed Field:{field_name}  {error}."
+        )
+        
+        self.action_requested.emit(
+            "User Input Validation Failed",
+            {
+                "title": "Unsupported Character",
+                "message": (
+                    f"The {field_name} field contains a character "
+                    "that cannot be used in photo metadata.\n\n"
+                    f"{error}\n\n"
+                    "Please correct the field before continuing."
+                ),
+            },
+        )
+
     # -----------------------------------------------------------------
     # Display Photo
     # -----------------------------------------------------------------
@@ -732,6 +808,8 @@ class EditorActivity(QWidget):
         photo_number: int,
         total_photos: int,
         maps_available: bool,
+        find_criterion: str | None = None,
+        find_text: str | None = None,
     ) -> None:
         """
         Display the photo and its current project metadata.
@@ -793,6 +871,36 @@ class EditorActivity(QWidget):
         )
 
         # -------------------------------------------------------------
+        # Find State
+        # -------------------------------------------------------------
+
+        if find_criterion is not None:
+
+            index = (
+                self._search_criterion.findText(
+                    find_criterion
+                )
+            )
+
+            if index >= 0:
+
+                self._search_criterion.setCurrentIndex(
+                    index
+                )
+
+            self._search_text.setText(
+                find_text or ""
+            )
+
+        else:
+
+            self._search_criterion.setCurrentIndex(
+                0
+            )
+
+            self._search_text.clear()
+
+        # -------------------------------------------------------------
         # Photo Number
         # -------------------------------------------------------------
 
@@ -815,7 +923,7 @@ class EditorActivity(QWidget):
         self._event_field.setFocus()
 
     # -----------------------------------------------------------------
-    # Editor Actions - Placeholder
+    # Editor Actions
     # -----------------------------------------------------------------
 
     def _save_and_next(self) -> None:
@@ -824,8 +932,17 @@ class EditorActivity(QWidget):
             "SAVE & NEXT requested."
         )
 
+        if not self._validate_metadata_fields():
+            return
+
         self.action_requested.emit(
-            "Save & Next"
+            "Save & Next",
+            {
+                "event": self._event_field.text(),
+                "year": self._year_field.text(),
+                "location": self._location_field.text(),
+                "info": self._info_field.toPlainText(),
+            },
         )
 
     def _back(self) -> None:
@@ -835,7 +952,8 @@ class EditorActivity(QWidget):
         )
 
         self.action_requested.emit(
-            "Back"
+            "Back",
+            None,
         )
 
     def _forward(self) -> None:
@@ -845,7 +963,8 @@ class EditorActivity(QWidget):
         )
 
         self.action_requested.emit(
-            "Forward"
+            "Forward",
+            None,
         )
 
     def _goto_photo(self) -> None:
@@ -858,38 +977,116 @@ class EditorActivity(QWidget):
         )
 
         self.action_requested.emit(
-            f"Goto:{requested_photo}"
+            "Goto",
+            requested_photo,
         )
 
-    def _search(self) -> None:
+    #---------------------------------------------
+    # Validate Find Text
+    #--------------------------------------------
+
+    def _validate_find_request(
+        self,
+        criterion: str,
+        text: str,
+    ) -> bool:
+        """
+        Validate the current Find request.
+
+        Returns True when the request is valid.
+        """
+
+        if (
+            criterion == "Containing Text..."
+            and not text
+        ):
+            logger.info(
+                "Find validation failed: "
+                "Containing Text requires search text."
+            )
+
+            self.action_requested.emit(
+                "User Input Validation Failed",
+                {
+                    "title": "Invalid Find Request",
+                    "message": (
+                        "Containing Text requires text to find."
+                    ),
+                },
+            )
+
+            return False
+
+        return True
+
+    #---------------------------------------------
+    # Find Previous
+    #--------------------------------------------
+    
+    def _find_previous(self) -> None:
+
+        criterion = (
+            self._search_criterion.currentText()
+        )
+
+        text = (
+            self._search_text.text().strip()
+        )
+
+        if not self._validate_find_request(
+            criterion,
+            text,
+        ):
+            return
 
         logger.debug(
-            "SEARCH requested."
+            "FIND PREVIOUS requested: criterion=%r text=%r",
+            criterion,
+            text,
         )
 
         self.action_requested.emit(
-            "Search"
+            "Find Previous",
+            {
+                "criterion": criterion,
+                "text": text,
+            },
+        )
+        
+    #---------------------------------------------
+    # Find Next
+    #--------------------------------------------
+
+    def _find_next(self) -> None:
+
+        criterion = (
+            self._search_criterion.currentText()
         )
 
-    def _search_previous(self) -> None:
+        text = (
+            self._search_text.text().strip()
+        )
+
+        if not self._validate_find_request(
+            criterion,
+            text,
+        ):
+            return
 
         logger.debug(
-            "SEARCH PREVIOUS requested."
+            "FIND NEXT requested: criterion=%r text=%r",
+            criterion,
+            text,
         )
 
         self.action_requested.emit(
-            "Search Previous"
+            "Find Next",
+            {
+                "criterion": criterion,
+                "text": text,
+            },
         )
 
-    def _search_next(self) -> None:
-
-        logger.debug(
-            "SEARCH NEXT requested."
-        )
-
-        self.action_requested.emit(
-            "Search Next"
-        )
 
     def _maps_requested(self) -> None:
 
@@ -898,7 +1095,8 @@ class EditorActivity(QWidget):
         )
 
         self.action_requested.emit(
-            "Maps"
+            "Maps",
+            None,
         )
 
     def _propagation_settings(self) -> None:
@@ -908,7 +1106,8 @@ class EditorActivity(QWidget):
         )
 
         self.action_requested.emit(
-            "Propagation Settings"
+            "Propagation Settings",
+            None,
         )
 
     def _change_project(self) -> None:
@@ -918,7 +1117,8 @@ class EditorActivity(QWidget):
         )
 
         self.action_requested.emit(
-            "Change Project"
+            "Change Project",
+            None,
         )
 
     # -----------------------------------------------------------------

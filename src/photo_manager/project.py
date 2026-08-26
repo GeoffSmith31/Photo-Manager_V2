@@ -53,6 +53,8 @@ recovery action.
 """
 
 import json
+import piexif
+import piexif.helper
 from pathlib import Path
 from dataclasses import dataclass
 from photo_manager.constants import (
@@ -134,7 +136,449 @@ def get_photo_edit_data(
         info=photo["info"],
         has_coordinates=has_coordinates,
     )
-    
+
+
+# ---------------------------------------------------------------------
+# Save Photo Edit Data
+# ---------------------------------------------------------------------
+
+def save_photo_edit_data(
+    project_json_path: Path,
+    photo_index: int,
+    metadata: dict,
+) -> None:
+    """
+    Save edited metadata for one photo to project.json.
+
+    Only the four user-editable metadata fields are changed.
+    Core-owned fields, including exif_written, are preserved.
+    """
+
+    logger.debug(
+        "Saving photo edit data: %s [%d]",
+        project_json_path,
+        photo_index,
+    )
+
+    data = json.loads(
+        project_json_path.read_text(
+            encoding="utf-8"
+        )
+    )
+
+    photos = data["photos"]
+
+    if (
+        photo_index < 0
+        or photo_index >= len(photos)
+    ):
+        raise IndexError(
+            f"Photo index out of range: {photo_index}"
+        )
+
+    photo = photos[photo_index]
+
+    photo["event"] = metadata["event"]
+    photo["year"] = metadata["year"]
+    photo["location"] = metadata["location"]
+    photo["info"] = metadata["info"]
+
+    from datetime import datetime
+
+    photo["last_updated"] = (
+        datetime.now().isoformat()
+    )
+
+    project_json_path.write_text(
+        json.dumps(
+            data,
+            indent=2,
+            ensure_ascii=False,
+        ) + "\n",
+        encoding="utf-8",
+    )
+
+    logger.debug(
+        "Photo edit data saved: %s [%d]",
+        project_json_path,
+        photo_index,
+    )
+
+# ---------------------------------------------------------------------
+# Find Photo
+# ---------------------------------------------------------------------
+
+def find_photo(
+    project_json_path: Path,
+    current_photo: int,
+    criterion: str,
+    text: str,
+    direction: int,
+) -> int | None:
+    """
+    Find the next matching photo in the requested direction.
+
+    direction:
+        1  = forward
+       -1  = backward
+
+    The search wraps around the project.
+
+    Returns:
+        Zero-based photo index when a match is found.
+        None when no photo matches.
+    """
+
+    logger.debug(
+        "Finding photo: current=%d criterion=%r "
+        "text=%r direction=%d",
+        current_photo,
+        criterion,
+        text,
+        direction,
+    )
+
+    data = json.loads(
+        project_json_path.read_text(
+            encoding="utf-8"
+        )
+    )
+
+    photos = data["photos"]
+
+    if not photos:
+        return None
+
+    if (
+        current_photo < 0
+        or current_photo >= len(photos)
+    ):
+        raise IndexError(
+            f"Photo index out of range: {current_photo}"
+        )
+
+    if direction not in (-1, 1):
+        raise ValueError(
+            f"Invalid search direction: {direction}"
+        )
+
+    search_text = text.casefold()
+
+    index = (
+        current_photo + direction
+    ) % len(photos)
+
+    while index != current_photo:
+
+        photo = photos[index]
+
+        match = False
+
+        # ---------------------------------------------------------
+        # Unedited
+        # ---------------------------------------------------------
+
+        if criterion == "Unedited":
+
+            match = (
+                photo.get("exif_written", False)
+                is False
+            )
+
+        # ---------------------------------------------------------
+        # Missing Event
+        # ---------------------------------------------------------
+
+        elif criterion == "Missing Event":
+
+            match = not photo.get(
+                "event",
+                "",
+            )
+
+        # ---------------------------------------------------------
+        # Missing Year
+        # ---------------------------------------------------------
+
+        elif criterion == "Missing Year":
+
+            match = not photo.get(
+                "year",
+                "",
+            )
+
+        # ---------------------------------------------------------
+        # Missing Location
+        # ---------------------------------------------------------
+
+        elif criterion == "Missing Location":
+
+            match = not photo.get(
+                "location",
+                "",
+            )
+
+        # ---------------------------------------------------------
+        # Missing Info
+        # ---------------------------------------------------------
+
+        elif criterion == "Missing Info":
+
+            match = not photo.get(
+                "info",
+                "",
+            )
+
+        # ---------------------------------------------------------
+        # Containing Text
+        # ---------------------------------------------------------
+
+        elif criterion == "Containing Text...":
+
+            fields = (
+                photo.get("event", ""),
+                photo.get("year", ""),
+                photo.get("location", ""),
+                photo.get("info", ""),
+            )
+
+            match = any(
+                search_text
+                in str(field).casefold()
+                for field in fields
+            )
+
+        else:
+            raise ValueError(
+                f"Unknown find criterion: {criterion}"
+            )
+
+        if match:
+
+            logger.debug(
+                "Find matched photo: %d",
+                index,
+            )
+
+            return index
+
+        index = (
+            index + direction
+        ) % len(photos)
+
+    logger.debug(
+        "Find produced no match."
+    )
+
+    return None
+
+# ---------------------------------------------------------------------
+# Write Photo EXIF
+# ---------------------------------------------------------------------
+
+def write_photo_exif(
+    project_json_path: Path,
+    photo_index: int,
+    metadata: dict,
+) -> None:
+    """
+    Write Photo Manager metadata to the photo's EXIF UserComment.
+
+    UserComment format is defined by ADR-009:
+
+        <Event> | <Year> | <Location> | <Info>
+
+    Empty fields are omitted.
+    """
+
+    logger.debug(
+        "Writing photo EXIF: %s [%d]",
+        project_json_path,
+        photo_index,
+    )
+
+    # -------------------------------------------------------------
+    # Load project information
+    # -------------------------------------------------------------
+
+    data = json.loads(
+        project_json_path.read_text(
+            encoding="utf-8"
+        )
+    )
+
+    photos = data["photos"]
+
+    if (
+        photo_index < 0
+        or photo_index >= len(photos)
+    ):
+        raise IndexError(
+            f"Photo index out of range: {photo_index}"
+        )
+
+    photo = photos[photo_index]
+
+    # -------------------------------------------------------------
+    # Locate image
+    # -------------------------------------------------------------
+
+    image_path = (
+        project_json_path.parent
+        / data["workspace"]["image_folder"]
+        / photo["file"]
+    )
+
+    logger.debug(
+        "EXIF image: %s",
+        image_path,
+    )
+
+    # -------------------------------------------------------------
+    # Construct UserComment
+    # -------------------------------------------------------------
+
+    fields = (
+        metadata.get("event", ""),
+        metadata.get("year", ""),
+        metadata.get("location", ""),
+        metadata.get("info", ""),
+    )
+
+    user_comment = " | ".join(
+        str(field).strip()
+        for field in fields
+        if str(field).strip()
+    )
+
+    logger.debug(
+        "UserComment: %s",
+        user_comment,
+    )
+
+    # -------------------------------------------------------------
+    # Load existing EXIF
+    # -------------------------------------------------------------
+
+    exif_dict = piexif.load(
+        str(image_path)
+    )
+
+    # -------------------------------------------------------------
+    # Replace UserComment
+    # -------------------------------------------------------------
+
+    exif_dict["Exif"][
+        piexif.ExifIFD.UserComment
+    ] = piexif.helper.UserComment.dump(
+        user_comment,
+        encoding="ascii",
+    )
+
+    # -------------------------------------------------------------
+    # Write EXIF
+    # -------------------------------------------------------------
+
+    exif_bytes = piexif.dump(
+        exif_dict
+    )
+
+    piexif.insert(
+        exif_bytes,
+        str(image_path),
+    )
+
+    logger.debug(
+        "Photo EXIF written successfully: %s",
+        image_path,
+    )
+
+# -------------------------------------------------------------
+# Set exif_written
+# -------------------------------------------------------------
+
+def set_photo_exif_written(
+    project_json_path: Path,
+    photo_index: int,
+    value: bool,
+) -> None:
+    """
+    Set the exif_written flag for one photo.
+    """
+
+    logger.debug(
+        "Setting exif_written=%s: %s [%d]",
+        value,
+        project_json_path,
+        photo_index,
+    )
+
+    data = json.loads(
+        project_json_path.read_text(
+            encoding="utf-8"
+        )
+    )
+
+    photos = data["photos"]
+
+    if (
+        photo_index < 0
+        or photo_index >= len(photos)
+    ):
+        raise IndexError(
+            f"Photo index out of range: {photo_index}"
+        )
+
+    photos[photo_index]["exif_written"] = value
+
+    project_json_path.write_text(
+        json.dumps(
+            data,
+            indent=2,
+            ensure_ascii=False,
+        ) + "\n",
+        encoding="utf-8",
+    )
+
+    logger.debug(
+        "exif_written updated successfully: %s [%d]",
+        project_json_path,
+        photo_index,
+    )
+
+# ---------------------------------------------------------------------
+# Get Photo Coordinates
+# ---------------------------------------------------------------------
+
+def get_photo_coordinates(
+    project_json_path: Path,
+    photo_index: int,
+) -> tuple[float, float] | None:
+    """
+    Return the GPS coordinates for a photo.
+
+    Returns None when the photo has no complete GPS coordinates.
+    """
+
+    data = json.loads(
+        project_json_path.read_text(
+            encoding="utf-8"
+        )
+    )
+
+    photo = data["photos"][photo_index]
+
+    latitude = photo.get("lat")
+    longitude = photo.get("lng")
+
+    if latitude is None or longitude is None:
+        return None
+
+    return (
+        float(latitude),
+        float(longitude),
+    )
+
 # ---------------------------------------------------------------------
 # Metadata Policy
 # ---------------------------------------------------------------------

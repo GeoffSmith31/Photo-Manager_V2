@@ -49,7 +49,10 @@ from PySide6.QtCore import (
 from photo_manager.control_tower import ControlTower
 from photo_manager.stage_status import StageStatus
 from photo_manager.workflow_stage import WorkflowStage
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import (
+    QApplication,
+    QMessageBox,
+)
 from photo_manager.project_selection import (
     ProjectSelectionRecord,
 )
@@ -59,7 +62,10 @@ from photo_manager.constants import (
     CONTROL_TOWER_MINIMUM_HEIGHT,
     CONTROL_TOWER_MINIMUM_WIDTH,
     )
-
+from photo_manager.multi_os import (
+    find_supported_browser,
+    launch_browser,
+)
 from photo_manager.logging import (
     configure_logging,
     get_logger,
@@ -88,6 +94,26 @@ class WindowManager:
         )
 
         self._screens = []
+        
+        self._maps_process = None
+        
+        self._maps_browser = (
+            find_supported_browser()
+        )
+
+        if self._maps_browser is not None:
+
+            logger.info(
+                "Maps browser selected: %s (%s).",
+                self._maps_browser["name"],
+                self._maps_browser["executable"],
+            )
+
+        else:
+
+            logger.info(
+                "No supported web browser available for Maps."
+            )
 
         self._control_tower_screen = None
 
@@ -163,6 +189,147 @@ class WindowManager:
         )
 
     # -------------------------------------------------------------
+    # Close Google Maps
+    # -------------------------------------------------------------
+
+    def close_google_maps(
+        self,
+    ) -> None:
+        """
+        Close the Google Maps browser opened by Photo Manager.
+
+        Closing an already-closed browser is treated as a normal
+        condition.
+        """
+
+        if self._maps_process is None:
+            return
+
+        if self._maps_process.poll() is None:
+
+            logger.debug(
+                "Closing Google Maps browser."
+            )
+
+            self._maps_process.terminate()
+
+        else:
+
+            logger.debug(
+                "Google Maps browser is already closed."
+            )
+
+        self._maps_process = None
+
+    # -------------------------------------------------------------
+    # Show Google Maps
+    # -------------------------------------------------------------
+
+    def show_google_maps(
+        self,
+        latitude: float,
+        longitude: float,
+    ) -> None:
+        """
+        Open the supplied coordinates in Google Maps.
+
+        Photo Manager opens a dedicated browser window for the
+        current photo. The browser is closed when Window Manager
+        subsequently presents another Activity.
+        """
+
+        if self._maps_browser is None:
+
+            logger.warning(
+                "Cannot open Google Maps: "
+                "no supported web browser is available."
+            )
+
+            self.user_interaction(
+                "Unable to Open Maps",
+                (
+                    "No supported web browser is installed.\n\n"
+                    "Google Maps cannot be opened."
+                ),
+            )
+
+            return
+
+        # ---------------------------------------------------------
+        # Remove stale process reference
+        # ---------------------------------------------------------
+
+        if self._maps_process is not None:
+
+            if self._maps_process.poll() is not None:
+
+                logger.debug(
+                    "Previous Google Maps browser "
+                    "has already closed."
+                )
+
+                self._maps_process = None
+
+            else:
+
+                logger.debug(
+                    "Google Maps browser is already running."
+                )
+
+                return
+
+        # ---------------------------------------------------------
+        # Build Google Maps URL
+        # ---------------------------------------------------------
+
+        url = (
+            "https://www.google.com/maps/place/"
+            f"{latitude},{longitude}"
+        )
+
+        logger.debug(
+            "Opening Google Maps: %s",
+            url,
+        )
+
+        # ---------------------------------------------------------
+        # Launch browser
+        # ---------------------------------------------------------
+
+        try:
+
+            self._maps_process = launch_browser(
+                self._maps_browser,
+                url,
+            )
+
+            logger.debug(
+                "Google Maps browser launched: %s (PID %d).",
+                self._maps_browser["name"],
+                self._maps_process.pid,
+            )
+
+        except (
+            OSError,
+            ValueError,
+        ) as error:
+
+            logger.error(
+                "Unable to launch Google Maps browser: %s",
+                error,
+            )
+
+            self._maps_process = None
+
+            self.user_interaction(
+                "Unable to Open Maps",
+                (
+                    "The web browser could not be opened.\n\n"
+                    "Google Maps cannot be displayed."
+                ),
+            )
+
+    # -------------------------------------------------------------
     # Set Project Selection Callback
     # -------------------------------------------------------------
 
@@ -215,6 +382,7 @@ class WindowManager:
     def _handle_action_requested(
         self,
         action: str,
+        payload,
     ) -> None:
         """
         Forward a requested user action to the application.
@@ -223,7 +391,8 @@ class WindowManager:
         if self._action_requested_callback is not None:
 
             self._action_requested_callback(
-                action
+                action,
+                payload,
             )
 
     # -------------------------------------------------------------
@@ -331,8 +500,27 @@ class WindowManager:
             message,
         )
 
-        # TODO:
-        # Display a modal dialog.
+        dialog = QMessageBox(
+            self._control_tower
+        )
+
+        dialog.setIcon(
+            QMessageBox.Warning
+        )
+
+        dialog.setWindowTitle(
+            title
+        )
+
+        dialog.setText(
+            message
+        )
+
+        dialog.setStandardButtons(
+            QMessageBox.Ok
+        )
+
+        dialog.exec()
 
     # -------------------------------------------------------------
     # Select Directory
@@ -379,6 +567,7 @@ class WindowManager:
         presentation order. The Window Manager passes them to the
         Control Tower for display.
         """
+        self.close_google_maps()
 
         logger.debug(
             "Presenting %d project selection records.",
@@ -422,10 +611,13 @@ class WindowManager:
         photo_number: int,
         total_photos: int,
         maps_available: bool,
+        find_criterion: str | None = None,
+        find_text: str | None = None,
     ) -> None:
         """
         Present the Editor Activity to the user.
         """
+        self.close_google_maps()
 
         logger.debug(
             "Presenting Editor Activity."
@@ -444,6 +636,8 @@ class WindowManager:
             photo_number=photo_number,
             total_photos=total_photos,
             maps_available=maps_available,
+            find_criterion=find_criterion,
+            find_text=find_text,
         )
 
     # -------------------------------------------------------------

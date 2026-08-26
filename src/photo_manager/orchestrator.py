@@ -42,6 +42,7 @@ The Orchestrator owns the application's current state and determines
 the sequence in which application services are invoked.
 """
 import sys
+import json
 from PySide6.QtWidgets import QApplication
 from dataclasses import dataclass
 from enum import Enum, auto
@@ -68,6 +69,11 @@ from photo_manager.project import (
     get_download_status,
     get_photo_availability,
     get_photo_edit_data,
+    get_photo_coordinates,
+    save_photo_edit_data,
+    write_photo_exif,
+    set_photo_exif_written,
+    find_photo,
 )
 from photo_manager.project_selection import (
     ProjectSelectionRecord,
@@ -703,7 +709,11 @@ class Orchestrator:
     # Load Current Photo
     # -----------------------------------------------------------------
 
-    def _load_current_photo(self) -> None:
+    def _load_current_photo(
+        self,
+        find_criterion: str | None = None,
+        find_text: str | None = None,
+    ) -> None:
         """
         Request the current photo's editing data from the
         Project Service.
@@ -754,6 +764,8 @@ class Orchestrator:
             photo_number=self._project_global.current_photo,
             total_photos=self._project_global.photo_count,
             maps_available=photo_edit_data.has_coordinates,
+            find_criterion=find_criterion,
+            find_text=find_text,
         )
 
     # -----------------------------------------------------------------
@@ -802,6 +814,7 @@ class Orchestrator:
     def _action_requested(
         self,
         action: str,
+        payload=None,
     ) -> None:
         """
         Handle an action requested by the user.
@@ -841,13 +854,415 @@ class Orchestrator:
         elif action == "Forward":
             self._navigate_forward()
             
-        elif action.startswith("Goto:"):
-            requested_photo = action[5:]
-
+        elif action == "Goto":
             self._goto_photo(
-                requested_photo
+                payload
+            )
+
+        elif action == "Maps":
+            self._show_google_maps()
+
+        elif action == "Save & Next":
+            self._save_and_next(
+                payload
             )
             
+        elif action == "User Input Validation Failed":
+            self._window_manager.user_interaction(
+                payload["title"],
+                payload["message"],
+            )
+
+        elif action == "Find Next":
+            self._find_photo(
+                payload,
+                1,
+            )
+
+        elif action == "Find Previous":
+            self._find_photo(
+                payload,
+                -1,
+            )
+
+    # -----------------------------------------------------------------
+    # Editor Google Maps
+    # -----------------------------------------------------------------
+
+    def _show_google_maps(
+        self,
+    ) -> None:
+        """
+        Display the current photo location in Google Maps.
+        """
+
+        if self._project is None:
+
+            logger.error(
+                "Cannot open Google Maps: no active project."
+            )
+
+            return
+
+        if self._project_global is None:
+
+            logger.error(
+                "Cannot open Google Maps: "
+                "no project global data."
+            )
+
+            return
+
+        photo_index = (
+            self._project_global.current_photo
+        )
+
+        logger.debug(
+            "Google Maps requested for photo %d.",
+            photo_index + 1,
+        )
+
+        try:
+
+            coordinates = get_photo_coordinates(
+                self._project.project_json_path,
+                photo_index,
+            )
+
+        except (
+            OSError,
+            ValueError,
+            KeyError,
+            IndexError,
+            json.JSONDecodeError,
+        ) as error:
+
+            logger.error(
+                "Unable to obtain photo coordinates: %s",
+                error,
+            )
+
+            self._window_manager.user_interaction(
+                title="Unable to Open Maps",
+                message=(
+                    "The photo coordinates could not be read.\n\n"
+                    "Google Maps cannot be opened."
+                ),
+            )
+
+            return
+
+        if coordinates is None:
+
+            logger.warning(
+                "Google Maps requested for photo %d "
+                "but no coordinates are available.",
+                photo_index + 1,
+            )
+
+            self._window_manager.user_interaction(
+                title="Unable to Open Maps",
+                message=(
+                    "This photo does not have GPS coordinates.\n\n"
+                    "Google Maps cannot be opened."
+                ),
+            )
+
+            return
+
+        latitude, longitude = coordinates
+
+        logger.debug(
+            "Opening Google Maps for photo %d: "
+            "latitude=%s longitude=%s.",
+            photo_index + 1,
+            latitude,
+            longitude,
+        )
+
+        self._window_manager.show_google_maps(
+            latitude,
+            longitude,
+        )
+
+    # -----------------------------------------------------------------
+    # Editor Find
+    # -----------------------------------------------------------------
+
+    def _find_photo(
+        self,
+        payload,
+        direction: int,
+    ) -> None:
+        """
+        Find the next matching photo in the requested direction.
+        """
+
+        logger.debug(
+            "Finding photo: criterion=%r text=%r direction=%d",
+            payload["criterion"],
+            payload["text"],
+            direction,
+        )
+
+        try:
+            photo_index = find_photo(
+                self._project.project_json_path,
+                self._project_global.current_photo,
+                payload["criterion"],
+                payload["text"],
+                direction,
+            )
+
+        except (
+            OSError,
+            ValueError,
+            KeyError,
+            IndexError,
+            json.JSONDecodeError,
+        ) as error:
+
+            logger.error(
+                "Unable to perform find operation: %s",
+                error,
+            )
+
+            self._window_manager.user_interaction(
+                title="Unable to Find Photo",
+                message=(
+                    "The project information could not be searched.\n\n"
+                    "Please check the project and try again."
+                ),
+            )
+
+            return
+
+        if photo_index is None:
+
+            logger.info(
+                "No photo found matching criterion=%r text=%r.",
+                payload["criterion"],
+                payload["text"],
+            )
+
+            self._window_manager.user_interaction(
+                title="No Matching Photo",
+                message=(
+                    "No photo matching the selected "
+                    "criteria was found."
+                ),
+            )
+
+            return
+
+        logger.debug(
+            "Find matched photo %d.",
+            photo_index,
+        )
+
+        self._navigate_to_photo(
+            photo_index,
+            find_criterion=payload["criterion"],
+            find_text=payload["text"],
+        )
+
+    # -----------------------------------------------------------------
+    # Editor Save & Next
+    # -----------------------------------------------------------------
+
+    def _save_and_next(
+        self,
+        metadata,
+    ) -> None:
+        """
+        Save the edited metadata for the current photo.
+
+        EXIF writing and navigation are deliberately not performed yet.
+        """
+
+        if self._project is None:
+            logger.error(
+                "Cannot save photo: no active project."
+            )
+            return
+
+        if self._project_global is None:
+            logger.error(
+                "Cannot save photo: no project global data."
+            )
+            return
+
+        if not isinstance(metadata, dict):
+            logger.error(
+                "Invalid Save & Next payload: %r",
+                metadata,
+            )
+            return
+
+        logger.debug(
+            "Saving metadata for photo %d.",
+            self._project_global.current_photo + 1,
+        )
+
+        try:
+            save_photo_edit_data(
+                self._project.project_json_path,
+                self._project_global.current_photo,
+                metadata,
+            )
+
+        except (
+            OSError,
+            ValueError,
+            KeyError,
+            IndexError,
+            json.JSONDecodeError,
+        ) as error:
+            logger.error(
+                "Unable to save photo metadata: %s",
+                error,
+            )
+            
+            self._window_manager.user_interaction(
+                title="Unable to Save Project",
+                message=(
+                    "The project information could not be saved.\n\n"
+                    "Your changes have not been completed. "
+                    "Please check that the project is writable "
+                    "and try again."
+                ),
+            )
+            return
+
+        logger.debug(
+            "Photo metadata saved successfully. "
+            "EXIF write not yet performed."
+        )
+
+        # -------------------------------------------------------------
+        # Write EXIF
+        # -------------------------------------------------------------
+
+        try:
+            write_photo_exif(
+                self._project.project_json_path,
+                self._project_global.current_photo,
+                metadata,
+            )
+
+        except (
+            OSError,
+            ValueError,
+            KeyError,
+            IndexError,
+            json.JSONDecodeError,
+        ) as error:
+            logger.error(
+                "Unable to write photo EXIF: %s",
+                error,
+            )
+
+            self._window_manager.user_interaction(
+                title="Unable to Save Photo",
+                message=(
+                    "The photo metadata could not be written "
+                    "to the image file.\n\n"
+                    "Your project information has been saved, "
+                    "but the image has not been updated. "
+                    "Please correct the problem and try again."
+                ),
+            )
+
+            return
+
+        # -------------------------------------------------------------
+        # Confirm EXIF write
+        # -------------------------------------------------------------
+
+        try:
+            set_photo_exif_written(
+                self._project.project_json_path,
+                self._project_global.current_photo,
+                True,
+            )
+
+        except (
+            OSError,
+            ValueError,
+            KeyError,
+            IndexError,
+            json.JSONDecodeError,
+        ) as error:
+            logger.error(
+                "Unable to update exif_written: %s",
+                error,
+            )
+
+            self._window_manager.user_interaction(
+                title="Unable to Update Project",
+                message=(
+                    "The photo metadata was written to the "
+                    "image, but the project information could "
+                    "not be updated.\n\n"
+                    "The photo has not been advanced. "
+                    "Please correct the problem and try again."
+                ),
+            )
+
+            return
+
+        logger.debug(
+            "Save & Next persistence complete."
+        )
+
+        self._navigate_forward()
+
+    # -----------------------------------------------------------------
+    # Navigate To Photo
+    # -----------------------------------------------------------------
+
+    def _navigate_to_photo(
+        self,
+        photo_index: int,
+        find_criterion: str | None = None,
+        find_text: str | None = None,
+    ) -> None:
+        """
+        Navigate to a photo specified by its zero-based index.
+        """
+
+        if self._project_global is None:
+            logger.error(
+                "Cannot navigate to photo: no project is active."
+            )
+            return
+
+        if (
+            photo_index < 0
+            or photo_index >= self._project_global.photo_count
+        ):
+            logger.error(
+                "Cannot navigate to photo: index %d is out of range.",
+                photo_index,
+            )
+            return
+
+        self._project_global.current_photo = (
+            photo_index
+        )
+
+        logger.debug(
+            "Navigating to photo %d.",
+            photo_index + 1,
+        )
+
+        self._window_manager.clear_activity()
+
+        self._load_current_photo(
+            find_criterion=find_criterion,
+            find_text=find_text,
+        )
+
     # -----------------------------------------------------------------
     # Editor Navigation
     # -----------------------------------------------------------------

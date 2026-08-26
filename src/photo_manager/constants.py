@@ -62,6 +62,10 @@ APPLICATION_LOG_DIRECTORY = (
     / "logs"
 )
 
+MAPS_BROWSER_PROFILE_DIRECTORY = (
+    APPLICATION_DATA_DIRECTORY
+    / "maps_browser"
+)
 # -----------------------------------------------------------------
 # Project File
 # -----------------------------------------------------------------
@@ -102,10 +106,45 @@ __all__ = [
     "SETTINGS_FILENAME",
     "PROJECT_FILENAME",
     "LOG_FILENAME",
+    "MAPS_BROWSER_PROFILE_DIRECTORY",
     "CONTROL_TOWER_DEFAULT_WIDTH",
     "CONTROL_TOWER_DEFAULT_HEIGHT",
     "CONTROL_TOWER_MINIMUM_WIDTH",
     "CONTROL_TOWER_MINIMUM_HEIGHT",
     "Application",
 ]
+# ---------------------------------------------------------------------
+# Supported Web Browsers
+# ---------------------------------------------------------------------
 
+SUPPORTED_BROWSERS = (
+    {
+        "name": "Google Chrome",
+        "executables": {
+            "linux": (
+                "google-chrome",
+                "google-chrome-stable",
+            ),
+            "windows": (
+                "chrome.exe",
+            ),
+            "macos": (
+                "Google Chrome",
+            ),
+        },
+    },
+    {
+        "name": "Firefox",
+        "executables": {
+            "linux": (
+                "firefox",
+            ),
+            "windows": (
+                "firefox.exe",
+            ),
+            "macos": (
+                "firefox",
+            ),
+        },
+    },
+)

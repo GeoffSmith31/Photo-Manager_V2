@@ -261,3 +261,211 @@ This ensures that coordinates used to launch Maps are the current authoritative 
 When a value is required later, it is retrieved from the authoritative Project Service at the point where it is required.
 
 This is intentional. It is preferable to perform an additional authoritative lookup than to risk treating previously retrieved data as current.
+
+## ADR-009 — Photo Manager UserComment Format
+
+**Status:** Accepted
+
+**Date:** 2026-08-24
+
+### Context
+
+Photo Manager writes the approved photo metadata to the image file's EXIF `UserComment` field.
+
+A consistent format is required so that:
+
+- the information is readable in external photo applications;
+- the format remains compatible with software that may have limited character support;
+- the format can potentially be recognised by future Photo Manager importers;
+- empty metadata fields can be represented without unnecessary separators.
+
+The `project.json` file remains the authoritative Photo Manager record. The EXIF `UserComment` is a representation of the approved metadata written into the image.
+
+### Decision
+
+Photo Manager will write the following metadata fields to EXIF `UserComment` in this order:
+
+1. Event
+2. Year
+3. Location
+4. Info
+
+The format is:
+
+    <Event> | <Year> | <Location> | <Info>
+
+The separator is a vertical bar with one space on each side:
+
+    " | "
+
+The string is constructed by concatenating the non-empty fields in order.
+
+The separator is inserted before each non-empty field except the first non-empty field.
+
+For example:
+
+    RACAL Course | 1984 | North Ryde | Medport manufacturers course
+
+If a field is empty, it is omitted rather than producing an empty field between separators.
+
+For example:
+
+    RACAL Course | 1984 | Medport manufacturers course
+
+If only Event and Info are populated:
+
+    RACAL Course | Medport manufacturers course
+
+If all fields are empty, the UserComment is an empty string.
+
+### Rationale
+
+The `|` character is visually unambiguous and is unlikely to occur in normal user-entered metadata.
+
+Spaces around the separator improve readability when the UserComment is displayed by external applications such as Kodi.
+
+The format uses ordinary text characters rather than unusual Unicode punctuation, reducing the possibility of compatibility problems with external applications.
+
+The format is primarily intended as a human-readable representation of Photo Manager metadata within the image. Photo Manager does not depend on reconstructing its metadata from the UserComment.
+
+### Consequences
+
+The `|` character is effectively reserved as the UserComment field separator.
+
+Because empty fields are omitted, the UserComment does not necessarily contain enough information to determine which of the four metadata fields were originally empty. This is acceptable because `project.json` remains the authoritative Photo Manager record.
+
+Future importers may recognise and use the Photo Manager UserComment format, but this is not a requirement of the current EXIF implementation.
+
+Future decisions concerning other EXIF metadata, such as creation dates, GPS data, or preservation of camera-specific metadata, will be recorded separately.
+
+### Character set
+
+Some display systems support a limited character set, so to allow comments to be correctly displayed, the input fields are limited to the following characters:
+A-Z
+a-z
+0-9
+space
+. , ' " - ( ) [ ] / & + = ? ! % @ _ * : #
+
+# ADR-010 — External Browser Integration for Google Maps
+
+**Status:** Accepted  
+**Date:** 2026-08-26
+
+## Context
+
+Photo Manager provides a Google Maps button in the Photo Editor for photographs that contain GPS coordinates.
+
+The application should open the photo's location in a web browser. The browser is an optional external capability and must not be a prerequisite for running Photo Manager.
+
+The application should be portable across systems where different supported browsers may be installed.
+
+When Photo Manager opens Google Maps, the browser window is associated with the currently displayed photo. The browser remains available while the user examines the location.
+
+When a different photo or Activity is presented, the Google Maps browser window opened by Photo Manager is closed. A subsequent Maps request opens a new browser window for the newly displayed photo.
+
+The user may also close the Maps browser window independently of Photo Manager. This is not an error condition.
+
+## Decision
+
+Photo Manager will support Google Maps through an externally installed web browser.
+
+The application will:
+
+1. Discover supported browsers using the system environment rather than assuming a fixed executable path.
+2. Initially support:
+   - Google Chrome
+   - Firefox
+3. Select an available supported browser according to the application's defined preference order.
+4. Allow Photo Manager to operate normally when no supported browser is installed.
+5. Report an error only when the user attempts to use the Maps function and no supported browser is available.
+6. Open a dedicated browser window for Google Maps when the Maps function is used.
+7. Maintain a reference to the browser process/window opened by Photo Manager.
+8. Associate the browser window with the currently displayed photo.
+9. Allow the user to use the Maps browser independently while the current photo remains displayed.
+10. Close the Maps browser window before Window Manager presents a different photo or Activity.
+11. Treat a Maps browser that has already been closed by the user as a normal condition.
+12. Open a new Maps browser window when the Maps function is subsequently requested.
+
+The responsibility for the feature is divided as follows:
+
+### Editor
+
+The Editor provides the Maps button and emits the `Maps` action when the user clicks it.
+
+The Maps button is disabled when the current photo has no GPS coordinates.
+
+### Orchestrator
+
+The Orchestrator handles the `Maps` action.
+
+It obtains the current photo's latitude and longitude from the Project Service and requests that the Window Manager display the location.
+
+The Orchestrator does not manage the browser process or window.
+
+### Project Service
+
+The Project Service provides the latitude and longitude for the requested photo.
+
+It does not construct browser URLs or interact with the browser.
+
+### Window Manager
+
+The Window Manager owns browser discovery, browser launching, and the lifecycle of the Google Maps browser window.
+
+It:
+
+- determines which supported browser is available;
+- launches the selected browser when required;
+- retains the browser process/window reference;
+- closes the Maps browser before presenting a different photo or Activity;
+- safely handles a browser that has already been closed by the user;
+- presents the requested application Activity after Maps cleanup has been completed.
+
+Window Manager is also responsible for using the appropriate browser-launch mechanism for the current operating system.
+
+### Multi-OS Support
+
+Operating-system-specific browser discovery and launching behaviour will be contained within `multi_os.py` where practical.
+
+The remainder of the application should use OS-independent interfaces provided by the multi-OS layer.
+
+### Constants
+
+The supported browser definitions will be maintained in `constants.py`.
+
+The browser list will contain the supported browser names and the platform-specific executable names or identifiers required for discovery.
+
+The order of the list defines the browser preference order.
+
+## Error Handling
+
+The absence of a supported browser is not an application startup error.
+
+If the user selects the Maps function when no supported browser is available, Photo Manager will display a user-facing error explaining that Google Maps cannot be opened.
+
+Browser discovery, launch, or process-management failures will be logged and reported to the user through the normal Window Manager user-interaction mechanism where appropriate.
+
+A browser that has already been closed by the user is not an error condition.
+
+A photo without GPS coordinates is not an error condition; the Maps button is disabled for such photos.
+
+When Window Manager is asked to present a new photo or Activity, failure to close an already-terminated Maps browser is not an error.
+
+## Rationale
+
+Treating the browser as an optional capability allows Photo Manager to operate normally on systems without a supported browser while still providing useful feedback when the Maps function is requested.
+
+Browser discovery avoids platform-specific assumptions about executable locations and allows the application to operate in different environments.
+
+Associating the Maps browser with the currently displayed photo avoids the complexity of communicating with and navigating an existing browser window when the user moves to another photo.
+
+Closing the Maps browser before presenting a different photo or Activity provides deterministic behaviour: the browser always represents the location of the photo for which it was opened.
+
+Keeping browser interaction within the Window Manager preserves the application's architectural separation:
+
+- the Project Service manages project data;
+- the Orchestrator coordinates operations;
+- the Window Manager manages application windows and external browser windows;
+- the multi-OS layer contains operating-system-specific implementation details;
+- constants define the supported browser configuration.

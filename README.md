@@ -22,3 +22,10 @@ Photo Manager requires the following system packages for the
 native Qt GUI:
 
 - libxcb-cursor0
+
+## Supported Browsers
+
+Photo Manager provides a show location option that launches a browser to display the photo location using a Google Maps pin if the photo contains GPS metadata
+The following browsers are supported by PhotoManager:
+Google Chrome
+Firefox
