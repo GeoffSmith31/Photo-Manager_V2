@@ -70,6 +70,12 @@ from photo_manager.logging import (
     configure_logging,
     get_logger,
 )
+from photo_manager.project import (
+    MetadataPolicies,
+)
+from photo_manager.propagation_settings_dialog import (
+    PropagationSettingsDialog,
+)
 
 logger = get_logger("Window Manager")
 
@@ -187,6 +193,49 @@ class WindowManager:
             "Control Tower screen: %s",
             self._control_tower_screen.name(),
         )
+
+    # -------------------------------------------------------------
+    # Show Propagation Settings
+    # -------------------------------------------------------------
+
+    def show_propagation_settings(
+        self,
+        metadata_policies: MetadataPolicies,
+    ) -> MetadataPolicies | None:
+        """
+        Display the Propagation Settings dialog.
+
+        Returns
+        -------
+        MetadataPolicies
+            The settings selected by the user when OK is pressed.
+
+        None
+            The user cancelled the dialog.
+        """
+
+        logger.debug(
+            "Presenting Propagation Settings dialog."
+        )
+
+        dialog = PropagationSettingsDialog(
+            metadata_policies,
+            self._control_tower,
+        )
+
+        if dialog.exec():
+
+            logger.debug(
+                "Propagation Settings dialog accepted."
+            )
+
+            return dialog.metadata_policies()
+
+        logger.debug(
+            "Propagation Settings dialog cancelled."
+        )
+
+        return None
 
     # -------------------------------------------------------------
     # Close Google Maps
@@ -568,7 +617,7 @@ class WindowManager:
         Control Tower for display.
         """
         self.close_google_maps()
-
+        self.clear_activity()
         logger.debug(
             "Presenting %d project selection records.",
             len(project_records),

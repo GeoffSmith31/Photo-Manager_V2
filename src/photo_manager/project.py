@@ -52,6 +52,7 @@ is responsible for determining the appropriate
 recovery action.
 """
 
+from __future__ import annotations
 import json
 import piexif
 import piexif.helper
@@ -63,7 +64,7 @@ from photo_manager.constants import (
 )
 from photo_manager.project_selection import ProjectSelectionRecord
 from photo_manager.logging import get_logger
-
+from datetime import datetime
 
 logger = get_logger("Project")
 
@@ -146,16 +147,22 @@ def save_photo_edit_data(
     project_json_path: Path,
     photo_index: int,
     metadata: dict,
+    metadata_policies: MetadataPolicies,
 ) -> None:
     """
-    Save edited metadata for one photo to project.json.
+    Save edited metadata for one photo and apply metadata
+    propagation according to the project policies.
 
-    Only the four user-editable metadata fields are changed.
-    Core-owned fields, including exif_written, are preserved.
+    The current photo is always updated.
+
+    Propagation is applied only to other photos where
+    exif_written is False.
+
+    Propagation does not modify exif_written or last_updated.
     """
 
     logger.debug(
-        "Saving photo edit data: %s [%d]",
+        "Saving photo edit data with propagation: %s [%d]",
         project_json_path,
         photo_index,
     )
@@ -176,18 +183,84 @@ def save_photo_edit_data(
             f"Photo index out of range: {photo_index}"
         )
 
-    photo = photos[photo_index]
+    current_photo = photos[photo_index]
 
-    photo["event"] = metadata["event"]
-    photo["year"] = metadata["year"]
-    photo["location"] = metadata["location"]
-    photo["info"] = metadata["info"]
+    # -------------------------------------------------------------
+    # Save the current photo's edited metadata.
+    # -------------------------------------------------------------
 
-    from datetime import datetime
+    current_photo["event"] = metadata["event"]
+    current_photo["year"] = metadata["year"]
+    current_photo["location"] = metadata["location"]
+    current_photo["info"] = metadata["info"]
 
-    photo["last_updated"] = (
-        datetime.now().isoformat()
-    )
+    # -------------------------------------------------------------
+    # Propagation policies.
+    # -------------------------------------------------------------
+
+    policies = {
+        "event": metadata_policies.event,
+        "year": metadata_policies.year,
+        "location": metadata_policies.location,
+        "info": metadata_policies.info,
+    }
+
+    propagation_count = 0
+
+    # -------------------------------------------------------------
+    # Apply propagation to other unedited photos.
+    # -------------------------------------------------------------
+
+    for index, photo in enumerate(photos):
+
+        if index == photo_index:
+            continue
+
+        if photo["exif_written"]:
+            continue
+
+        for field, policy in policies.items():
+
+            if policy.propagate == "none":
+                continue
+
+            if policy.propagate == "project":
+
+                applies = True
+
+            elif policy.propagate == "group":
+
+                applies = (
+                    photo["moment_id"]
+                    == current_photo["moment_id"]
+                )
+
+            elif policy.propagate == "location":
+
+                applies = (
+                    photo["location_key"]
+                    == current_photo["location_key"]
+                )
+
+            else:
+
+                logger.warning(
+                    "Unknown propagation policy for %s: %r",
+                    field,
+                    policy.propagate,
+                )
+
+                continue
+
+            if applies:
+
+                photo[field] = metadata[field]
+
+                propagation_count += 1
+
+    # -------------------------------------------------------------
+    # Write current metadata and propagation together.
+    # -------------------------------------------------------------
 
     project_json_path.write_text(
         json.dumps(
@@ -199,11 +272,10 @@ def save_photo_edit_data(
     )
 
     logger.debug(
-        "Photo edit data saved: %s [%d]",
-        project_json_path,
+        "Photo metadata saved: current=%d, propagated=%d.",
         photo_index,
+        propagation_count,
     )
-
 # ---------------------------------------------------------------------
 # Find Photo
 # ---------------------------------------------------------------------
@@ -530,6 +602,12 @@ def set_photo_exif_written(
         )
 
     photos[photo_index]["exif_written"] = value
+    
+    if value:
+
+        photos[photo_index]["last_updated"] = (
+            datetime.now().isoformat()
+        )
 
     project_json_path.write_text(
         json.dumps(
@@ -594,6 +672,8 @@ class MetadataPolicy:
     default: str
 
 
+
+
 # ---------------------------------------------------------------------
 # Metadata Policies
 # ---------------------------------------------------------------------
@@ -608,6 +688,148 @@ class MetadataPolicies:
     year: MetadataPolicy
     location: MetadataPolicy
     info: MetadataPolicy
+
+# ---------------------------------------------------------------------
+# Get Metadata Policies
+# ---------------------------------------------------------------------
+
+def get_metadata_policies(
+    project_json_path: Path,
+) -> MetadataPolicies:
+    """
+    Return the metadata policies for a project.
+
+    Metadata policies are stored in project.json and are independent
+    of ProjectGlobal data.
+    """
+
+    logger.debug(
+        "Loading metadata policies: %s",
+        project_json_path,
+    )
+
+    data = json.loads(
+        project_json_path.read_text(
+            encoding="utf-8"
+        )
+    )
+
+    metadata_data = data["metadata_policies"]
+
+    metadata_policies = MetadataPolicies(
+        event=MetadataPolicy(
+            propagate=metadata_data["event"]["propagate"],
+            priority=metadata_data["event"]["priority"],
+            default=metadata_data["event"]["default"],
+        ),
+        year=MetadataPolicy(
+            propagate=metadata_data["year"]["propagate"],
+            priority=metadata_data["year"]["priority"],
+            default=metadata_data["year"]["default"],
+        ),
+        location=MetadataPolicy(
+            propagate=metadata_data["location"]["propagate"],
+            priority=metadata_data["location"]["priority"],
+            default=metadata_data["location"]["default"],
+        ),
+        info=MetadataPolicy(
+            propagate=metadata_data["info"]["propagate"],
+            priority=metadata_data["info"]["priority"],
+            default=metadata_data["info"]["default"],
+        ),
+    )
+
+    logger.debug(
+        "Metadata policies loaded: %s",
+        metadata_policies,
+    )
+
+    return metadata_policies
+
+# ---------------------------------------------------------------------
+# Save Metadata Policies
+# ---------------------------------------------------------------------
+
+def save_metadata_policies(
+    project_json_path: Path,
+    metadata_policies: MetadataPolicies,
+) -> None:
+    """
+    Save metadata policies to project.json.
+
+    Only the metadata_policies section is changed.
+    All other project data is preserved.
+
+    Raises
+    ------
+    OSError
+        If project.json cannot be read or written.
+
+    json.JSONDecodeError
+        If project.json does not contain valid JSON.
+    """
+
+    logger.debug(
+        "Saving metadata policies: %s",
+        project_json_path,
+    )
+
+    try:
+
+        data = json.loads(
+            project_json_path.read_text(
+                encoding="utf-8"
+            )
+        )
+
+        data["metadata_policies"] = {
+            "event": {
+                "propagate": metadata_policies.event.propagate,
+                "priority": metadata_policies.event.priority,
+                "default": metadata_policies.event.default,
+            },
+            "year": {
+                "propagate": metadata_policies.year.propagate,
+                "priority": metadata_policies.year.priority,
+                "default": metadata_policies.year.default,
+            },
+            "location": {
+                "propagate": metadata_policies.location.propagate,
+                "priority": metadata_policies.location.priority,
+                "default": metadata_policies.location.default,
+            },
+            "info": {
+                "propagate": metadata_policies.info.propagate,
+                "priority": metadata_policies.info.priority,
+                "default": metadata_policies.info.default,
+            },
+        }
+
+        project_json_path.write_text(
+            json.dumps(
+                data,
+                indent=2,
+                ensure_ascii=False,
+            ) + "\n",
+            encoding="utf-8",
+        )
+
+    except (
+        OSError,
+        json.JSONDecodeError,
+    ) as error:
+
+        logger.error(
+            "Unable to save metadata policies: %s",
+            error,
+        )
+
+        raise
+
+    logger.debug(
+        "Metadata policies saved: %s",
+        project_json_path,
+    )
 
 # ---------------------------------------------------------------------
 # Workspace
@@ -940,7 +1162,7 @@ def validate_project_data(
 
 def get_project_global(
     project_json_path: Path,
-) -> tuple[int, MetadataPolicies]:
+) -> tuple[int, str, str]:
     """
     Return the project-level information required by the
     Orchestrator.
@@ -969,31 +1191,6 @@ def get_project_global(
     source = workspace["source"]
     source_title = workspace["source_title"]
 
-    metadata_data = data["metadata_policies"]
-
-    metadata_policies = MetadataPolicies(
-        event=MetadataPolicy(
-            propagate=metadata_data["event"]["propagate"],
-            priority=metadata_data["event"]["priority"],
-            default=metadata_data["event"]["default"],
-        ),
-        year=MetadataPolicy(
-            propagate=metadata_data["year"]["propagate"],
-            priority=metadata_data["year"]["priority"],
-            default=metadata_data["year"]["default"],
-        ),
-        location=MetadataPolicy(
-            propagate=metadata_data["location"]["propagate"],
-            priority=metadata_data["location"]["priority"],
-            default=metadata_data["location"]["default"],
-        ),
-        info=MetadataPolicy(
-            propagate=metadata_data["info"]["propagate"],
-            priority=metadata_data["info"]["priority"],
-            default=metadata_data["info"]["default"],
-        ),
-    )
-
     logger.debug(
         "Project global data: photos=%d, source=%s, source_title=%s",
         photo_count,
@@ -1003,7 +1200,6 @@ def get_project_global(
 
     return (
         photo_count,
-        metadata_policies,
         source,
         source_title,
     )

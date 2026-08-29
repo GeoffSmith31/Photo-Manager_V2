@@ -118,6 +118,22 @@ __all__ = [
 # ---------------------------------------------------------------------
 
 SUPPORTED_BROWSERS = (
+
+    {
+        "name": "Firefox",
+        "executables": {
+            "linux": (
+                "firefox",
+            ),
+            "windows": (
+                "firefox.exe",
+            ),
+            "macos": (
+                "firefox",
+            ),
+        },
+    },
+
     {
         "name": "Google Chrome",
         "executables": {
@@ -133,18 +149,5 @@ SUPPORTED_BROWSERS = (
             ),
         },
     },
-    {
-        "name": "Firefox",
-        "executables": {
-            "linux": (
-                "firefox",
-            ),
-            "windows": (
-                "firefox.exe",
-            ),
-            "macos": (
-                "firefox",
-            ),
-        },
-    },
+
 )

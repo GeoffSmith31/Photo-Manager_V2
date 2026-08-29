@@ -65,6 +65,8 @@ from photo_manager.project import (
     MetadataPolicies,
     discover_available_projects,
     get_project_global,
+    get_metadata_policies,
+    save_metadata_policies,
     get_registration_status,
     get_download_status,
     get_photo_availability,
@@ -96,7 +98,6 @@ class ProjectGlobal:
     """
 
     photo_count: int
-    metadata_policies: MetadataPolicies
     source: str
     source_title: str
     current_photo: int
@@ -451,6 +452,37 @@ class Orchestrator:
         )
 
     # -----------------------------------------------------------------
+    # Change Project
+    # -----------------------------------------------------------------
+
+    def _change_project(self) -> None:
+        """
+        Return to Project Selection and allow the user to select
+        a different project.
+        """
+
+        logger.debug(
+            "Returning to Project Selection."
+        )
+
+        self._set_state(
+            ApplicationState.PROJECT_SELECTION,
+        )
+
+        self._window_manager.set_workflow_stage_status(
+            WorkflowStage.PROJECT_SELECTION,
+            StageStatus.IN_PROGRESS,
+        )
+
+        self._window_manager.status_message(
+            "Awaiting Project Selection"
+        )
+
+        self._discover_projects()
+
+        self._present_project_selection()
+
+    # -----------------------------------------------------------------
     # Clear Project Global Data
     # -----------------------------------------------------------------
 
@@ -490,7 +522,6 @@ class Orchestrator:
 
         (
             photo_count,
-            metadata_policies,
             source,
             source_title,
         ) = get_project_global(
@@ -499,7 +530,6 @@ class Orchestrator:
 
         self._project_global = ProjectGlobal(
             photo_count=photo_count,
-            metadata_policies=metadata_policies,
             source=source,
             source_title=source_title,
             current_photo=0,
@@ -527,9 +557,10 @@ class Orchestrator:
         )
 
         logger.debug(
-            "Project global data: photos=%s, metadata_policies=%s",
+            "Project global data: photos=%s, source=%s, source_title=%s",
             self._project_global.photo_count,
-            self._project_global.metadata_policies,
+            self._project_global.source,
+            self._project_global.source_title,
         )
 
         logger.debug(
@@ -843,6 +874,8 @@ class Orchestrator:
                 "Change Project requested."
             )
 
+            self._change_project()
+
         elif action == "Finalise":
             logger.info(
                 "Finalise requested."
@@ -884,6 +917,108 @@ class Orchestrator:
                 payload,
                 -1,
             )
+        
+        elif action == "Propagation Settings":
+            self._show_propagation_settings()
+
+    # -----------------------------------------------------------------
+    # Propagation Settings
+    # -----------------------------------------------------------------
+
+    def _show_propagation_settings(self) -> None:
+        """
+        Present the current project's propagation settings.
+        """
+
+        if self._project is None:
+            logger.error(
+                "Cannot show Propagation Settings: "
+                "no active project."
+            )
+            return
+
+        logger.debug(
+            "Loading current metadata policies."
+        )
+
+        try:
+
+            metadata_policies = get_metadata_policies(
+                self._project.project_json_path
+            )
+
+        except (
+            OSError,
+            json.JSONDecodeError,
+            KeyError,
+            TypeError,
+        ) as error:
+
+            logger.error(
+                "Unable to load metadata policies: %s",
+                error,
+            )
+
+            self._window_manager.user_interaction(
+                "Unable to Open Propagation Settings",
+                (
+                    "The project's propagation settings "
+                    "could not be loaded.\n\n"
+                    "Please check the project and try again."
+                ),
+            )
+
+            return
+
+        updated_policies = (
+            self._window_manager.show_propagation_settings(
+                metadata_policies
+            )
+        )
+
+        if updated_policies is None:
+
+            logger.debug(
+                "Propagation Settings cancelled."
+            )
+
+            return
+
+        logger.debug(
+            "Propagation Settings changed."
+        )
+
+        try:
+
+            save_metadata_policies(
+                self._project.project_json_path,
+                updated_policies,
+            )
+
+        except (
+            OSError,
+            json.JSONDecodeError,
+        ) as error:
+
+            logger.error(
+                "Unable to save metadata policies: %s",
+                error,
+            )
+
+            self._window_manager.user_interaction(
+                "Unable to Save Propagation Settings",
+                (
+                    "The propagation settings could not be saved.\n\n"
+                    "Please check that the project file is writable "
+                    "and try again."
+                ),
+            )
+
+            return
+
+        logger.info(
+            "Propagation Settings saved."
+        )
 
     # -----------------------------------------------------------------
     # Editor Google Maps
@@ -1105,10 +1240,15 @@ class Orchestrator:
         )
 
         try:
+            metadata_policies = get_metadata_policies(
+                self._project.project_json_path
+            )
+
             save_photo_edit_data(
                 self._project.project_json_path,
                 self._project_global.current_photo,
                 metadata,
+                metadata_policies,
             )
 
         except (
@@ -1280,8 +1420,17 @@ class Orchestrator:
 
         if self._project_global.current_photo <= 0:
             logger.debug(
-                "Back requested at first photo; ignoring."
+                "Back requested at first photo."
             )
+
+            self._window_manager.user_interaction(
+                title="Start of Project",
+                message=(
+                    "You are already at the first photo "
+                    "in this project."
+                ),
+            )
+
             return
 
         self._project_global.current_photo -= 1
@@ -1313,8 +1462,17 @@ class Orchestrator:
 
         if self._project_global.current_photo >= last_photo:
             logger.debug(
-                "Forward requested at last photo; ignoring."
+                "Forward requested at last photo."
             )
+
+            self._window_manager.user_interaction(
+                title="End of Project",
+                message=(
+                    "You are already at the last photo "
+                    "in this project."
+                ),
+            )
+
             return
 
         self._project_global.current_photo += 1
