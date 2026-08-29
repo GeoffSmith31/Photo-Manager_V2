@@ -83,6 +83,12 @@ PROJECT_FILENAME = "project.json"
 LOG_FILENAME = "photo_manager.log"
 
 # -----------------------------------------------------------------
+# Help URL
+# -----------------------------------------------------------------
+HELP_URL = (
+    "https://geoffsmith31.github.io/Photo-Manager_V2/"
+)
+# -----------------------------------------------------------------
 # Control Tower Defaults
 # -----------------------------------------------------------------
 
@@ -111,6 +117,7 @@ __all__ = [
     "CONTROL_TOWER_DEFAULT_HEIGHT",
     "CONTROL_TOWER_MINIMUM_WIDTH",
     "CONTROL_TOWER_MINIMUM_HEIGHT",
+    "HELP_URL",
     "Application",
 ]
 # ---------------------------------------------------------------------

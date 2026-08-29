@@ -57,6 +57,7 @@ from photo_manager.logging import (
 from photo_manager.settings import (
     Settings,
     load_settings,
+    save_settings,
 )
 from photo_manager.constants import (
     APPLICATION_LOG_DIRECTORY,
@@ -859,10 +860,23 @@ class Orchestrator:
             action,
         )
 
-        if action == "Cancel":
+        if action == "Close":
             logger.info(
-                "Cancel requested."
+                "Close requested."
             )
+
+            if not self._window_manager.confirm_shutdown():
+                logger.info(
+                    "Close cancelled by user."
+                )
+                return
+
+            self.shutdown()
+            
+            QApplication.quit()
+
+        elif action == "Settings":
+            self._show_settings()
 
         elif action == "Retry":
             logger.info(
@@ -920,6 +934,128 @@ class Orchestrator:
         
         elif action == "Propagation Settings":
             self._show_propagation_settings()
+
+        elif action == "Help":
+            logger.info(
+                "Help requested."
+            )
+
+            self._window_manager.show_help()
+
+    # -----------------------------------------------------------------
+    # Application Settings
+    # -----------------------------------------------------------------
+
+    def _show_settings(
+        self,
+    ) -> None:
+        """
+        Present and process the application settings dialog.
+        """
+
+        logger.debug(
+            "Loading current application settings."
+        )
+
+        current_settings = load_settings()
+
+        workspace_editable = (
+            self._state
+            not in (
+                ApplicationState.REGISTERING,
+                ApplicationState.DOWNLOADING,
+                ApplicationState.EDITING,
+                ApplicationState.SHUTTING_DOWN,
+            )
+        )
+
+        updated_settings = (
+            self._window_manager.show_settings(
+                current_settings,
+                workspace_editable,
+            )
+        )
+
+        if updated_settings is None:
+            logger.debug(
+                "Application Settings cancelled."
+            )
+            return
+
+        logger.debug(
+            "Application Settings changed."
+        )
+
+        old_workspace = (
+            current_settings.workspace_directory
+        )
+
+        try:
+            save_settings(
+                updated_settings
+            )
+
+        except OSError as error:
+
+            logger.error(
+                "Unable to save application settings: %s",
+                error,
+            )
+
+            self._window_manager.user_interaction(
+                "Unable to Save Settings",
+                (
+                    "The application settings could not be saved.\n\n"
+                    "Please check that the settings file is writable "
+                    "and try again."
+                ),
+            )
+
+            return
+
+        # -------------------------------------------------------------
+        # Reload the settings that were actually saved.
+        # -------------------------------------------------------------
+
+        self._settings = load_settings()
+
+        logger.debug(
+            "Application settings reloaded: %s",
+            self._settings,
+        )
+
+        # -------------------------------------------------------------
+        # Apply the new logging level immediately.
+        # -------------------------------------------------------------
+
+        configure_logging(
+            level=self._settings.logging_level,
+            log_directory=APPLICATION_LOG_DIRECTORY,
+            console_logging=True,
+        )
+
+        # -------------------------------------------------------------
+        # Rediscover projects if the workspace changed.
+        # -------------------------------------------------------------
+
+        if (
+            self._settings.workspace_directory
+            != old_workspace
+        ):
+
+            logger.info(
+                "Workspace directory changed to %s.",
+                self._settings.workspace_directory,
+            )
+
+            self._workspace = (
+                self._settings.workspace_directory
+            )
+
+            self._discover_projects()
+
+            if self._state == ApplicationState.PROJECT_SELECTION:
+                self._present_project_selection()
 
     # -----------------------------------------------------------------
     # Propagation Settings
@@ -1539,6 +1675,35 @@ class Orchestrator:
         self._window_manager.clear_activity()
 
         self._load_current_photo()
+
+    # -----------------------------------------------------------------
+    # Shutdown
+    # -----------------------------------------------------------------
+
+    def shutdown(
+        self,
+    ) -> None:
+        """
+        Gracefully shut down Photo Manager.
+        """
+
+        logger.info(
+            "Shutting down Photo Manager."
+        )
+
+        self._set_state(
+            ApplicationState.SHUTTING_DOWN,
+        )
+
+        # -------------------------------------------------------------
+        # Release Window Manager resources.
+        # -------------------------------------------------------------
+
+        self._window_manager.shutdown()
+
+        logger.info(
+            "Photo Manager shutdown complete."
+        )
 
 # ============================================================================
 # Standalone Test Harness

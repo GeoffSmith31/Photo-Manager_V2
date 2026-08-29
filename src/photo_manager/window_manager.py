@@ -43,9 +43,14 @@ from pathlib import Path
 import logging
 import sys
 from PySide6.QtCore import (
+    QUrl,
     QRect,
     QTimer,
 )
+from PySide6.QtGui import (
+    QDesktopServices,
+)
+from photo_manager.settings_dialog import SettingsDialog
 from photo_manager.control_tower import ControlTower
 from photo_manager.stage_status import StageStatus
 from photo_manager.workflow_stage import WorkflowStage
@@ -61,6 +66,7 @@ from photo_manager.constants import (
     CONTROL_TOWER_DEFAULT_WIDTH,
     CONTROL_TOWER_MINIMUM_HEIGHT,
     CONTROL_TOWER_MINIMUM_WIDTH,
+    HELP_URL,
     )
 from photo_manager.multi_os import (
     find_supported_browser,
@@ -76,6 +82,7 @@ from photo_manager.project import (
 from photo_manager.propagation_settings_dialog import (
     PropagationSettingsDialog,
 )
+from photo_manager.settings import Settings
 
 logger = get_logger("Window Manager")
 
@@ -193,6 +200,46 @@ class WindowManager:
             "Control Tower screen: %s",
             self._control_tower_screen.name(),
         )
+
+    # -------------------------------------------------------------
+    # Show Application Settings
+    # -------------------------------------------------------------
+
+    def show_settings(
+        self,
+        settings: Settings,
+        workspace_editable: bool,
+    ) -> Settings | None:
+        """
+        Display the Application Settings dialog.
+
+        Returns the selected Settings when OK is pressed,
+        or None when the dialog is cancelled.
+        """
+
+        logger.debug(
+            "Presenting Application Settings dialog."
+        )
+
+        dialog = SettingsDialog(
+            settings,
+            workspace_editable,
+            self._control_tower,
+        )
+
+        if dialog.exec():
+
+            logger.debug(
+                "Application Settings dialog accepted."
+            )
+
+            return dialog.settings()
+
+        logger.debug(
+            "Application Settings dialog cancelled."
+        )
+
+        return None
 
     # -------------------------------------------------------------
     # Show Propagation Settings
@@ -647,6 +694,26 @@ class WindowManager:
         self._control_tower.clear_activity()
 
     # -------------------------------------------------------------
+    # Show Help
+    # -------------------------------------------------------------
+
+    def show_help(
+        self,
+    ) -> None:
+        """
+        Open the Photo Manager Help website in the user's
+        default web browser.
+        """
+
+        logger.debug(
+            "Opening Photo Manager Help."
+        )
+
+        QDesktopServices.openUrl(
+            QUrl(HELP_URL)
+        )
+
+    # -------------------------------------------------------------
     # Present Editor Activity
     # -------------------------------------------------------------
 
@@ -856,6 +923,70 @@ class WindowManager:
             x,
             y,
         )
+
+    # -------------------------------------------------------------
+    # Confirm Shutdown
+    # -------------------------------------------------------------
+
+    def confirm_shutdown(
+        self,
+    ) -> bool:
+        """
+        Ask the user to confirm application shutdown.
+
+        Returns True when the user chooses Yes.
+        """
+
+        logger.info(
+            "Requesting shutdown confirmation."
+        )
+
+        dialog = QMessageBox(
+            self._control_tower
+        )
+
+        dialog.setIcon(
+            QMessageBox.Question
+        )
+
+        dialog.setWindowTitle(
+            "Close Photo Manager"
+        )
+
+        dialog.setText(
+            "Are you sure you want to close Photo Manager?"
+        )
+
+        dialog.setStandardButtons(
+            QMessageBox.Yes
+            | QMessageBox.No
+        )
+
+        dialog.setDefaultButton(
+            QMessageBox.No
+        )
+
+        return (
+            dialog.exec()
+            == QMessageBox.Yes
+        )
+
+    # -------------------------------------------------------------
+    # Shutdown
+    # -------------------------------------------------------------
+
+    def shutdown(
+        self,
+    ) -> None:
+        """
+        Release Window Manager resources during application shutdown.
+        """
+
+        logger.debug(
+            "Window Manager shutdown."
+        )
+
+        self.close_google_maps()
 
 # ============================================================================
 # Standalone Test Harness

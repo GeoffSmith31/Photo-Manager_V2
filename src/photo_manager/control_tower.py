@@ -859,7 +859,7 @@ class ControlTower(QMainWindow):
                 if widget is not None:
                     widget.deleteLater()
 
-        left_actions = ["Cancel"]
+        left_actions = ["Close"]
         centre_actions = ["Settings", "Help"]
         right_actions = []
 
