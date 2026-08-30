@@ -491,6 +491,51 @@ class Orchestrator:
             StageStatus.IN_PROGRESS,
         )
 
+        self._window_manager.set_workflow_stage_result(
+            WorkflowStage.PROJECT_SELECTION,
+            "",
+        )
+
+        self._window_manager.set_workflow_stage_status(
+            WorkflowStage.SOURCE_SELECTION,
+            StageStatus.PENDING,
+        )
+
+        self._window_manager.set_workflow_stage_result(
+            WorkflowStage.SOURCE_SELECTION,
+            "",
+        )
+
+        self._window_manager.set_workflow_stage_status(
+            WorkflowStage.IMPORTING,
+            StageStatus.PENDING,
+        )
+
+        self._window_manager.set_workflow_stage_result(
+            WorkflowStage.IMPORTING,
+            "",
+        )
+
+        self._window_manager.set_workflow_stage_status(
+            WorkflowStage.EDITING,
+            StageStatus.PENDING,
+        )
+
+        self._window_manager.set_workflow_stage_result(
+            WorkflowStage.EDITING,
+            "",
+        )
+
+        self._window_manager.set_workflow_stage_status(
+            WorkflowStage.FINALISATION,
+            StageStatus.PENDING,
+        )
+
+        self._window_manager.set_workflow_stage_result(
+            WorkflowStage.FINALISATION,
+            "",
+        )
+
         self._window_manager.status_message(
             "Awaiting Project Selection"
         )
@@ -498,7 +543,6 @@ class Orchestrator:
         self._discover_projects()
 
         self._present_project_selection()
-
     # -----------------------------------------------------------------
     # Clear Project Global Data
     # -----------------------------------------------------------------
@@ -970,6 +1014,16 @@ class Orchestrator:
 
             logger.info(
                 "Finalise approved to continue."
+            )
+
+            self._window_manager.set_workflow_stage_status(
+                WorkflowStage.EDITING,
+                StageStatus.COMPLETED,
+            )
+
+            self._window_manager.set_workflow_stage_status(
+                WorkflowStage.FINALISATION,
+                StageStatus.IN_PROGRESS,
             )
 
             project_directory = (
@@ -1609,6 +1663,16 @@ class Orchestrator:
                     "copied and verified.\n\n"
                     "The project files have been removed."
                 ),
+            )
+
+            self._window_manager.set_workflow_stage_status(
+                WorkflowStage.FINALISATION,
+                StageStatus.COMPLETED,
+            )
+
+            self._window_manager.set_workflow_stage_result(
+                WorkflowStage.FINALISATION,
+                "Complete",
             )
 
             self._change_project()

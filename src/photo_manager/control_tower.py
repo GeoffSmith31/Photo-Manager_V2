@@ -185,10 +185,18 @@ class WorkflowStagePanel(QFrame):
         """
 
         status_display = {
-            StageStatus.PENDING: "■ PENDING",
-            StageStatus.IN_PROGRESS: "▶ IN PROGRESS",
-            StageStatus.COMPLETED: "● COMPLETED",
-            StageStatus.ERROR: "! ERROR",
+            StageStatus.PENDING: (
+                '<span style="color: black;">■</span> PENDING'
+            ),
+            StageStatus.IN_PROGRESS: (
+                '<span style="color: blue;">▶</span> IN PROGRESS'
+            ),
+            StageStatus.COMPLETED: (
+                '<span style="color: green;">●</span> COMPLETED'
+            ),
+            StageStatus.ERROR: (
+                '<span style="color: red;">!</span> ERROR'
+            ),
         }
 
         self._status_label.setText(
@@ -319,6 +327,10 @@ class ControlTower(QMainWindow):
         # -------------------------------------------------------------
 
         status_panel = self._create_status_panel()
+        
+        status_panel.setVisible(
+            False
+        )
 
         main_layout.addWidget(
             status_panel,
@@ -590,6 +602,7 @@ class ControlTower(QMainWindow):
             editor_activity,
             1,
         )
+        editor_activity.focus_event_field()
 
     # -----------------------------------------------------------------
     # Set Finalise Activity
@@ -771,7 +784,10 @@ class ControlTower(QMainWindow):
         """
 
         panel = QFrame()
-        
+
+        panel.setStyleSheet(
+            "background-color: #f2f2f2f2;"
+        )
         
         panel.setMinimumHeight(
             56
