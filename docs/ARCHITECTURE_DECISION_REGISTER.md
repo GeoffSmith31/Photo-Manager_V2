@@ -469,3 +469,385 @@ Keeping browser interaction within the Window Manager preserves the application'
 - the Window Manager manages application windows and external browser windows;
 - the multi-OS layer contains operating-system-specific implementation details;
 - constants define the supported browser configuration.
+
+# ADR-011 — Finalise Workflow and Safety Model
+
+**Status:** Accepted  
+**Date:** 2026-08-30
+
+## Context
+
+Finalise is the process used to complete a Photo Manager project and transfer its project photos to a user-selected destination.
+
+Finalise may involve a substantial number of filesystem operations and may take significant time on large projects. It also performs destructive operations during project cleanup.
+
+The workflow therefore needs:
+
+- clear and continuous user-visible activity;
+- safe handling of missing or unexpected files;
+- explicit user approval at appropriate decision points;
+- validation of the destination before copying;
+- deterministic filename collision handling;
+- a clearly defined point at which Finalise becomes non-interruptible; and
+- a fail-safe cleanup sequence that prevents an incomplete project from subsequently being opened for editing.
+
+## Decision
+
+Finalise will be implemented as a dedicated workflow coordinated by the Orchestrator and presented as a Control Tower Activity.
+
+The responsibilities are divided as follows:
+
+- **Orchestrator** — coordinates the workflow, manages application state and user decisions, and controls transitions.
+- **Finalise Service** — performs project analysis, filename processing, copying, verification and filesystem cleanup.
+- **Window Manager** — provides user interaction and Activity presentation.
+- **Activity Panel** — provides continuous observable progress during Finalise.
+
+The Finalise Service will not directly control application workflow or GUI state.
+
+---
+
+## Finalise Workflow
+
+```text
+EDITING
+   │
+   │ Finalise requested
+   ▼
+FINALISE — PREPARATION
+   │
+   ▼
+PROJECT INTEGRITY CHECK
+   │
+   ├── Unexpected files
+   │       │
+   │       └── STOP
+   │
+   ├── Missing project files
+   │       │
+   │       └── Warn user
+   │             ├── Cancel
+   │             └── Continue
+   │
+   ▼
+CHECK EDIT STATUS
+   │
+   ├── Unedited photos
+   │       │
+   │       └── Warn user
+   │             ├── Cancel
+   │             └── Continue
+   │
+   ▼
+SELECT DESTINATION
+   │
+   ├── Cancel → EDITOR
+   │
+   ▼
+VALIDATE DESTINATION
+   │
+   ├── Invalid → inform user → EDITOR
+   │
+   ▼
+ANALYSE FILENAMES
+   │
+   ├── No collisions
+   │
+   └── Collisions
+          │
+          ▼
+     PRESENT PROPOSED
+     FILENAMES
+          │
+          ├── Cancel → EDITOR
+          │
+          └── Accept
+                 │
+                 ▼
+════════════════════════════════════
+        NON-INTERRUPTIBLE PHASE
+════════════════════════════════════
+                 │
+                 ▼
+            COPY PHOTOS
+                 │
+                 ▼
+          VERIFY COPIES
+                 │
+                 ▼
+          DELETE project.json
+                 │
+                 ▼
+          DELETE SOURCE PHOTOS
+                 │
+                 ▼
+        REMOVE PROJECT DIRECTORY
+                 │
+                 ▼
+          FINALISE COMPLETE
+                 │
+                 ▼
+        PROJECT SELECTION
+```
+
+---
+
+## Project File Integrity
+
+The filenames recorded in `project.json` are the authoritative list of project photos.
+
+The actual contents of the project's image directory are compared against this list.
+
+### Missing Project Photos
+
+A registered project photo that is missing from the image directory does **not** prevent Finalise from completing.
+
+The user is shown the filenames of the missing photos and may either:
+
+- cancel Finalise and attempt to recover the files; or
+- continue Finalise without the missing photos.
+
+If the user continues, the missing photos are not copied.
+
+### Unexpected Files
+
+Files found in the project image directory that are not registered in `project.json` are considered unexpected files.
+
+Unexpected files are a **hard stop**.
+
+The filenames of all unexpected files are displayed to the user. The user must manually remove or relocate them before attempting Finalise again.
+
+Photo Manager must never silently:
+
+- delete unexpected files;
+- move unexpected files; or
+- copy unexpected files as part of Finalise.
+
+---
+
+## Unedited Photos
+
+Before Finalise proceeds to the destination-selection stage, the Orchestrator requests the list of unedited photos from the Project Service.
+
+If unedited photos exist, the user is warned and shown the number of affected photos.
+
+The user may:
+
+- cancel Finalise; or
+- continue despite the unedited photos.
+
+If no unedited photos exist, Finalise continues without user intervention.
+
+---
+
+## Destination Selection and Validation
+
+The user selects the destination directory through the Window Manager.
+
+If the user cancels the directory selection, Finalise is cancelled and the existing Editor Activity is restored, preferably showing the photo that was being edited when Finalise was requested.
+
+After selection, the destination is independently validated.
+
+The destination must:
+
+- exist;
+- be a directory; and
+- be writable by the application.
+
+Actual write capability should be tested rather than relying solely on filesystem permission bits.
+
+An invalid destination prevents Finalise from proceeding and returns the user to the Editor Activity.
+
+---
+
+## Filename Collision Handling
+
+Filename analysis occurs before any files are modified.
+
+Only filenames registered in `project.json` are considered for copying.
+
+If a proposed destination filename already exists, a new filename is generated by appending an incrementing integer.
+
+For example:
+
+```text
+IMG001.jpg
+IMG001_1.jpg
+IMG001_2.jpg
+IMG001_3.jpg
+```
+
+The process continues until a non-conflicting filename is found.
+
+All proposed filename changes are presented to the user before copying begins.
+
+No source files are renamed until the user has accepted the proposed changes.
+
+If the user cancels the collision approval, Finalise is cancelled and the existing Editor Activity is restored, preferably showing the current photo.
+
+Filename collision detection will be case-insensitive. Photo Manager will treat filenames that differ only in character case as conflicting, regardless of the case-sensitivity characteristics of the underlying filesystem.
+
+Case normalisation is used only for collision comparison. Original filename spelling and case are preserved in source and proposed destination filenames.
+
+---
+
+## Activity Panel and Progress Reporting
+
+Finalise will be presented as a Control Tower Activity.
+
+The Activity Panel will provide continuous observable progress during potentially lengthy operations.
+
+There should be no intentional period of more than approximately 0.5 seconds without an observable activity or progress update during a long-running operation.
+
+Finalise activities include:
+
+1. Checking project
+2. Checking project photos
+3. Checking edit status
+4. Selecting destination
+5. Validating destination
+6. Analysing filenames
+7. Resolving filename conflicts
+8. Copying photos
+9. Verifying copied photos
+10. Removing project files
+11. Removing source photos
+12. Completing Finalise
+
+Long-running operations must provide meaningful progress information and must not block the Qt event loop.
+
+For example:
+
+```text
+FINALISE
+
+Copying photos
+
+83 / 184
+
+Current file:
+IMG0083.jpg
+
+████████████████░░░░
+```
+
+Where practical, individual large-file copies should report byte-level progress.
+
+Finalise progress should be communicated through a structured progress interface rather than arbitrary GUI updates.
+
+---
+
+## User Cancellation
+
+During the preparation and user-decision phase, cancellation returns the user to the existing project's Editor Activity.
+
+Where possible, the Editor should reopen on the photo that was current when Finalise was requested.
+
+Cancellation applies to:
+
+- missing-photo warnings;
+- unedited-photo warnings;
+- destination selection;
+- filename collision approval; and
+- other user-decision points before copying begins.
+
+The project remains loaded and unchanged.
+
+---
+
+## Non-Interruptible Execution Phase
+
+Once actual copying begins, Finalise enters the non-interruptible execution phase.
+
+The normal **Close** action is removed or disabled.
+
+**Settings** is also removed or disabled.
+
+**Help** remains available.
+
+The user cannot cancel Finalise through the normal Action Bar during:
+
+- copying;
+- verification;
+- deletion of `project.json`;
+- deletion of source photos; or
+- project-directory cleanup.
+
+This prevents the application from being deliberately interrupted during operations that may leave the project in an intermediate state.
+
+---
+
+## Destructive Safety Boundary
+
+The original project remains intact until all destination files have been successfully copied and verified.
+
+The destructive sequence is strictly:
+
+```text
+COPY
+  ↓
+VERIFY
+  ↓
+DELETE project.json
+  ↓
+DELETE SOURCE PHOTOS
+  ↓
+REMOVE PROJECT DIRECTORY
+```
+
+`project.json` is deliberately deleted **before** the source photos.
+
+If the application crashes after `project.json` has been deleted but before cleanup is complete:
+
+- the project cannot subsequently be selected for editing;
+- some source files may remain and require manual filesystem cleanup; and
+- Photo Manager cannot open an incomplete or potentially inconsistent project.
+
+This behaviour is considered safer than allowing a partially cleaned project to remain selectable.
+
+---
+
+## Completion
+
+After successful cleanup:
+
+1. Finalise reports completion.
+2. The Orchestrator clears the active project.
+3. Available projects are rediscovered.
+4. The application returns to Project Selection.
+
+The Finalise Service does not directly initiate Project Selection.
+
+The transition is coordinated by the Orchestrator.
+
+---
+
+## Architectural Responsibility
+
+```text
+                    ORCHESTRATOR
+                         │
+             coordinates workflow
+                         │
+                         ▼
+                  FINALISE SERVICE
+                         │
+          ┌──────────────┴──────────────┐
+          │                             │
+    filesystem work              progress events
+          │                             │
+          │                             ▼
+          │                       ORCHESTRATOR
+          │                             │
+          │                             ▼
+          │                      WINDOW MANAGER
+          │                             │
+          │                             ▼
+          │                      ACTIVITY PANEL
+          │
+          ▼
+    Source / Destination
+```
+
+The governing responsibility boundary is:
+
+> **The Finalise Service performs the work; the Orchestrator coordinates it; the Window Manager presents it.**

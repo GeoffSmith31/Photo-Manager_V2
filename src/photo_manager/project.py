@@ -140,6 +140,84 @@ def get_photo_edit_data(
 
 
 # ---------------------------------------------------------------------
+# Get Unedited Photos
+# ---------------------------------------------------------------------
+
+def get_unedited_photos(
+    project_json_path: Path,
+) -> list[dict]:
+    """
+    Return the project photo records that have not yet had
+    their EXIF written.
+
+    A photo is considered edited when its exif_written field is True.
+    """
+
+    logger.debug(
+        "Loading unedited photos: %s",
+        project_json_path,
+    )
+
+    data = json.loads(
+        project_json_path.read_text(
+            encoding="utf-8"
+        )
+    )
+
+    photos = data["photos"]
+
+    unedited_photos = [
+        photo
+        for photo in photos
+        if not photo["exif_written"]
+    ]
+
+    logger.debug(
+        "Found %d unedited photo(s).",
+        len(unedited_photos),
+    )
+
+    return unedited_photos
+
+# ---------------------------------------------------------------------
+# Get Project Photo Filenames
+# ---------------------------------------------------------------------
+
+def get_project_photo_filenames(
+    project_json_path: Path,
+) -> list[str]:
+    """
+    Return the filenames of all photos registered in the project.
+
+    The filenames recorded in project.json are authoritative.
+    """
+
+    logger.debug(
+        "Loading project photo filenames: %s",
+        project_json_path,
+    )
+
+    data = json.loads(
+        project_json_path.read_text(
+            encoding="utf-8"
+        )
+    )
+
+    photos = data["photos"]
+
+    filenames = [
+        photo["file"]
+        for photo in photos
+    ]
+
+    logger.debug(
+        "Found %d registered project photo(s).",
+        len(filenames),
+    )
+
+    return filenames
+
+# ---------------------------------------------------------------------
 # Save Photo Edit Data
 # ---------------------------------------------------------------------
 

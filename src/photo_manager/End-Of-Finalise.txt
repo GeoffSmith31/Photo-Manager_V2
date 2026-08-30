@@ -1,0 +1,56 @@
+    _report_progress(
+        progress_callback,
+        FinaliseStage.SELECTING_DESTINATION,
+        "Select the destination directory.",
+    )
+
+    destination_directory = (
+        window_manager.select_directory(
+            "Select Finalise Destination"
+        )
+    )
+
+    if destination_directory is None:
+
+        logger.info(
+            "Finalise destination selection cancelled."
+        )
+
+        return False
+
+    logger.info(
+        "Finalise destination selected: %s",
+        destination_directory,
+    )
+
+    # -------------------------------------------------------------
+    # Validating Destination
+    # -------------------------------------------------------------
+
+    _report_progress(
+        progress_callback,
+        FinaliseStage.VALIDATING_DESTINATION,
+        "Validating destination directory...",
+    )
+
+    logger.info(
+        "Finalise source image directory: %s",
+        image_directory,
+    )
+
+    logger.info(
+        "Finalise destination directory: %s",
+        destination_directory,
+    )
+
+    # -------------------------------------------------------------
+    # Temporary Completion
+    # -------------------------------------------------------------
+
+    _report_progress(
+        progress_callback,
+        FinaliseStage.COMPLETING,
+        "Finalise preparation complete.",
+    )
+
+    return True

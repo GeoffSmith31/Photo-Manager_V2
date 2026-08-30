@@ -61,6 +61,7 @@ from photo_manager.settings import (
 )
 from photo_manager.constants import (
     APPLICATION_LOG_DIRECTORY,
+    APPLICATION_NAME,
 )
 from photo_manager.project import (
     MetadataPolicies,
@@ -77,6 +78,8 @@ from photo_manager.project import (
     write_photo_exif,
     set_photo_exif_written,
     find_photo,
+    get_unedited_photos,
+    get_project_photo_filenames,
 )
 from photo_manager.project_selection import (
     ProjectSelectionRecord,
@@ -84,6 +87,18 @@ from photo_manager.project_selection import (
 from photo_manager.stage_status import StageStatus
 from photo_manager.workflow_stage import WorkflowStage
 from photo_manager.window_manager import WindowManager
+from photo_manager.finalise import (
+    FinaliseProgress,
+    FinaliseStage,
+    analyse_filenames,
+    check_project_file_integrity,
+    copy_project_photos,
+    remove_empty_project_directories,
+    remove_project_file,
+    remove_source_photos,
+    resolve_filename_collisions,
+    validate_destination,
+)
 
 logger = get_logger("Orchestrator")
 
@@ -231,7 +246,8 @@ class Orchestrator:
         """
 
         logger.info(
-            "Starting Photo Manager."
+            "Starting %s.",
+            APPLICATION_NAME,
         )
 
         # -------------------------------------------------------------
@@ -894,6 +910,710 @@ class Orchestrator:
             logger.info(
                 "Finalise requested."
             )
+
+            if self._project is None:
+                logger.error(
+                    "Cannot finalise: no active project."
+                )
+                return
+
+            try:
+                unedited_photos = get_unedited_photos(
+                    self._project.project_json_path
+                )
+
+            except (
+                OSError,
+                KeyError,
+                TypeError,
+                json.JSONDecodeError,
+            ) as error:
+
+                logger.error(
+                    "Unable to check project for unedited "
+                    "photos: %s",
+                    error,
+                )
+
+                self._window_manager.user_interaction(
+                    title="Unable to Finalise Project",
+                    message=(
+                        "The project could not be checked "
+                        "for unedited photos.\n\n"
+                        "Finalisation has been cancelled."
+                    ),
+                )
+
+                return
+
+            if unedited_photos:
+
+                logger.info(
+                    "Project contains %d unedited photo(s).",
+                    len(unedited_photos),
+                )
+
+                if not self._window_manager.user_confirmation(
+                    title="Unedited Photos",
+                    message=(
+                        f"This project contains "
+                        f"{len(unedited_photos)} photos "
+                        "that have not been edited.\n\n"
+                        "Do you want to continue finalising "
+                        "the project anyway?"
+                    ),
+                ):
+                    logger.info(
+                        "Finalise cancelled by user."
+                    )
+                    return
+
+            logger.info(
+                "Finalise approved to continue."
+            )
+
+            project_directory = (
+                self._project.project_json_path.parent
+            )
+
+            image_directory = (
+                project_directory
+                / self._project.image_folder
+            )
+
+            finalise_activity = (
+                self._window_manager.present_finalise_activity()
+            )
+
+            registered_filenames = (
+                get_project_photo_filenames(
+                    self._project.project_json_path
+                )
+            )
+
+            integrity = check_project_file_integrity(
+                registered_filenames=registered_filenames,
+                image_directory=image_directory,
+                progress_callback=lambda progress:
+                    self._finalise_progress(
+                        finalise_activity,
+                        progress,
+                    ),
+            )
+
+            logger.info(
+                "Finalise integrity result: "
+                "missing=%d, unexpected=%d",
+                len(integrity.missing_files),
+                len(integrity.unexpected_files),
+            )
+
+            # ---------------------------------------------------------
+            # Unexpected Files
+            # ---------------------------------------------------------
+
+            if integrity.unexpected_files:
+
+                logger.warning(
+                    "Finalise stopped: unexpected files found."
+                )
+
+                unexpected_list = "\n".join(
+                    f"  {filename}"
+                    for filename in integrity.unexpected_files
+                )
+
+                logger.info(
+                    "Returning to Editor before displaying "
+                    "unexpected-file warning."
+                )
+
+                self._window_manager.clear_activity()
+
+                self._load_current_photo()
+
+                self._window_manager.user_interaction(
+                    title="Unexpected Files",
+                    message=(
+                        "The project photo directory contains "
+                        "files that are not registered in the project.\n\n"
+                        "Finalisation cannot continue until these "
+                        "files are removed or relocated.\n\n"
+                        "Unexpected files:\n"
+                        f"{unexpected_list}"
+                    ),
+                )
+
+                logger.info(
+                    "Finalise cancelled due to unexpected files."
+                )
+
+                return
+
+            # ---------------------------------------------------------
+            # Missing Files
+            # ---------------------------------------------------------
+
+            if integrity.missing_files:
+
+                logger.warning(
+                    "Finalise found missing project photos."
+                )
+
+                missing_list = "\n".join(
+                    f"  {filename}"
+                    for filename in integrity.missing_files
+                )
+
+                continue_without_missing = (
+                    self._window_manager.user_confirmation(
+                        title="Missing Photos",
+                        message=(
+                            "The following project photos are "
+                            "missing from the project photo directory.\n\n"
+                            "Finalisation can continue without "
+                            "these photos.\n\n"
+                            "Missing photos:\n"
+                            f"{missing_list}\n\n"
+                            "Do you want to continue finalising "
+                            "without the missing photos?"
+                        ),
+                    )
+                )
+
+                if not continue_without_missing:
+
+                    logger.info(
+                        "Finalise cancelled due to missing photos."
+                    )
+
+                    self._window_manager.clear_activity()
+
+                    self._load_current_photo()
+
+                    return
+
+                logger.info(
+                    "Finalise approved to continue without "
+                    "%d missing photo(s).",
+                    len(integrity.missing_files),
+                )
+
+            # ---------------------------------------------------------
+            # Select Destination
+            # ---------------------------------------------------------
+
+            while True:
+
+                self._finalise_progress(
+                    finalise_activity,
+                    FinaliseProgress(
+                        stage=FinaliseStage.SELECTING_DESTINATION,
+                        message=(
+                            "Select the destination directory."
+                        ),
+                    ),
+                )
+
+                destination_directory = (
+                    self._window_manager.select_directory(
+                        "Select Finalise Destination"
+                    )
+                )
+
+                if destination_directory is None:
+
+                    logger.info(
+                        "Finalise destination selection cancelled."
+                    )
+
+                    self._window_manager.clear_activity()
+
+                    self._load_current_photo()
+
+                    return
+
+                logger.info(
+                    "Finalise destination selected: %s",
+                    destination_directory,
+                )
+
+                # -----------------------------------------------------
+                # Validate Destination
+                # -----------------------------------------------------
+
+                validation = validate_destination(
+                    destination_directory=destination_directory,
+                    progress_callback=lambda progress:
+                        self._finalise_progress(
+                            finalise_activity,
+                            progress,
+                        ),
+                )
+
+                if validation.valid:
+                    break
+
+                logger.warning(
+                    "Finalise destination validation failed: %s",
+                    validation.reason,
+                )
+
+                try_again = (
+                    self._window_manager.user_confirmation(
+                        title="Invalid Destination",
+                        message=(
+                            "The selected destination cannot be "
+                            "used for Finalise.\n\n"
+                            f"{validation.reason}\n\n"
+                            "Do you want to select a different "
+                            "destination?"
+                        ),
+                    )
+                )
+
+                if not try_again:
+
+                    logger.info(
+                        "Finalise cancelled after destination "
+                        "validation failure."
+                    )
+
+                    self._window_manager.clear_activity()
+
+                    self._load_current_photo()
+
+                    return
+
+                logger.info(
+                    "User chose to select another Finalise "
+                    "destination."
+                )
+
+            # ---------------------------------------------------------
+            # Analyse Filenames
+            # ---------------------------------------------------------
+
+            filename_analysis = analyse_filenames(
+                registered_filenames=integrity.registered_files,
+                destination_directory=destination_directory,
+                progress_callback=lambda progress:
+                    self._finalise_progress(
+                        finalise_activity,
+                        progress,
+                    ),
+            )
+
+            # ---------------------------------------------------------
+            # Project-internal collisions
+            # ---------------------------------------------------------
+
+            if filename_analysis.project_collisions:
+
+                logger.warning(
+                    "Finalise stopped: project filename "
+                    "collisions detected."
+                )
+
+                collision_list = "\n".join(
+                    f"  {collision.filename_a} <-> "
+                    f"{collision.filename_b}"
+                    for collision
+                    in filename_analysis.project_collisions
+                )
+
+                self._window_manager.clear_activity()
+
+                self._load_current_photo()
+
+                self._window_manager.user_interaction(
+                    title="Project Filename Collision",
+                    message=(
+                        "The project contains filenames that "
+                        "would collide when compared "
+                        "case-insensitively.\n\n"
+                        "These filenames must be corrected "
+                        "before Finalise can continue.\n\n"
+                        "Collisions:\n"
+                        f"{collision_list}"
+                    ),
+                )
+
+                logger.info(
+                    "Finalise cancelled due to project "
+                    "filename collisions."
+                )
+
+                return
+
+            # ---------------------------------------------------------
+            # Resolve destination collisions
+            # ---------------------------------------------------------
+
+            resolved_filenames = (
+                resolve_filename_collisions(
+                    registered_filenames=integrity.registered_files,
+                    destination_directory=destination_directory,
+                    progress_callback=lambda progress:
+                        self._finalise_progress(
+                            finalise_activity,
+                            progress,
+                        ),
+                )
+            )
+
+            proposed_renames = [
+                (
+                    original,
+                    resolved,
+                )
+                for original, resolved
+                in resolved_filenames.items()
+                if original != resolved
+            ]
+
+            # ---------------------------------------------------------
+            # Confirm proposed renames
+            # ---------------------------------------------------------
+
+            if proposed_renames:
+
+                rename_list = "\n".join(
+                    f"  {original}  →  {resolved}"
+                    for original, resolved
+                    in proposed_renames
+                )
+
+                logger.info(
+                    "Finalise requires %d filename rename(s).",
+                    len(proposed_renames),
+                )
+
+                if not self._window_manager.user_confirmation(
+                    title="Potential Filename Collisions",
+                    message=(
+                        "Potential filename collisions were "
+                        "detected in the destination.\n\n"
+                        "The following files will be renamed:\n\n"
+                        f"{rename_list}\n\n"
+                        "Do you wish to continue?"
+                    ),
+                ):
+                    logger.info(
+                        "Finalise cancelled by user after "
+                        "filename collision warning."
+                    )
+
+                    self._window_manager.clear_activity()
+
+                    self._load_current_photo()
+
+                    return
+
+                logger.info(
+                    "User approved proposed filename changes."
+                )
+
+            else:
+
+                logger.info(
+                    "No destination filename collisions "
+                    "require renaming."
+                )
+
+            # ---------------------------------------------------------
+            # Copy Photos
+            # ---------------------------------------------------------
+
+            logger.info(
+                "Starting Finalise photo copy."
+            )
+
+            copy_result = copy_project_photos(
+                image_directory=image_directory,
+                destination_directory=destination_directory,
+                resolved_filenames=resolved_filenames,
+                progress_callback=lambda progress:
+                    self._finalise_progress(
+                        finalise_activity,
+                        progress,
+                    ),
+            )
+
+            # ---------------------------------------------------------
+            # Handle Copy Failure
+            # ---------------------------------------------------------
+
+            if not copy_result.successful:
+
+                copied_count = len(
+                    copy_result.copied_files
+                )
+
+                if copied_count == 0:
+
+                    copied_message = (
+                        "No photos were copied and "
+                        "verified successfully."
+                    )
+
+                elif copied_count == 1:
+
+                    copied_message = (
+                        "1 photo was copied and "
+                        "verified successfully."
+                    )
+
+                else:
+
+                    copied_message = (
+                        f"{copied_count} photos were "
+                        "copied and verified successfully."
+                    )
+
+                error_message = (
+                    copy_result.error
+                    if copy_result.error
+                    else "The reason for the failure "
+                         "could not be determined."
+                )
+
+                logger.warning(
+                    "Finalise copy failed after %d "
+                    "successful copy/copies. Failed file: %s",
+                    copied_count,
+                    copy_result.failed_file,
+                )
+
+                self._window_manager.clear_activity()
+
+                self._load_current_photo()
+
+                self._window_manager.user_interaction(
+                    title="File Copy / Verification Error",
+                    message=(
+                        f"{APPLICATION_NAME} could not complete "
+                        "copying and verifying the project photos.\n\n"
+                        f"{copied_message}\n\n"
+                        "The following photo could not be "
+                        "copied or verified:\n\n"
+                        f"  {copy_result.failed_file}\n\n"
+                        f"Error: {error_message}\n\n"
+                        "The project files have not been "
+                        "deleted.\n\n"
+                        "The successfully copied and verified "
+                        "files have been left in the "
+                        "destination directory."
+                    ),
+                )
+
+                logger.info(
+                    "Finalise cancelled due to file copy error."
+                )
+
+                return
+
+            logger.info(
+                "Finalise copied %d photo(s).",
+                len(copy_result.copied_files),
+            )
+
+            # ---------------------------------------------------------
+            # Remove Project File
+            # ---------------------------------------------------------
+
+            logger.info(
+                "Starting Finalise project file removal."
+            )
+
+            try:
+
+                remove_project_file(
+                    self._project.project_json_path
+                )
+
+            except OSError as error:
+
+                logger.warning(
+                    "Finalise stopped: unable to remove "
+                    "project file: %s",
+                    error,
+                )
+
+                self._window_manager.clear_activity()
+
+                self._load_current_photo()
+
+                self._window_manager.user_interaction(
+                    title="Project File Removal Error",
+                    message=(
+                        f"{APPLICATION_NAME} could not complete "
+                        "Finalise because the project file could "
+                        "not be removed.\n\n"
+                        f"Error: {error}\n\n"
+                        "No project photos have been deleted."
+                    ),
+                )
+
+                logger.info(
+                    "Finalise cancelled due to project file "
+                    "removal error."
+                )
+
+                return
+
+            logger.info(
+                "Finalise project file removed successfully."
+            )
+
+            # ---------------------------------------------------------
+            # Remove Source Photos
+            # ---------------------------------------------------------
+
+            logger.info(
+                "Starting Finalise source photo removal."
+            )
+
+            removed_files: list[str] = []
+
+            try:
+
+                removed_files = remove_source_photos(
+                    image_directory=image_directory,
+                    registered_filenames=integrity.registered_files,
+                    progress_callback=lambda progress:
+                        self._finalise_progress(
+                            finalise_activity,
+                            progress,
+                        ),
+                )
+
+            except OSError as error:
+
+                removed_count = len(
+                    removed_files
+                )
+
+                if removed_count == 1:
+
+                    removed_message = (
+                        "1 photo was removed successfully."
+                    )
+
+                elif removed_count > 1:
+
+                    removed_message = (
+                        f"{removed_count} photos were "
+                        "removed successfully."
+                    )
+
+                else:
+
+                    removed_message = (
+                        "No photos were removed successfully."
+                    )
+
+                logger.warning(
+                    "Finalise stopped during source photo "
+                    "removal after %d photo(s).",
+                    removed_count,
+                )
+
+                self._window_manager.clear_activity()
+
+                self._window_manager.user_interaction(
+                    title="Source Photo Removal Error",
+                    message=(
+                        f"{APPLICATION_NAME} could not complete "
+                        "removing the project photos.\n\n"
+                        f"{removed_message}\n\n"
+                        "The remaining source photos have "
+                        "been left in place.\n\n"
+                        f"Error: {error}"
+                    ),
+                )
+
+                logger.info(
+                    "Finalise stopped due to source photo "
+                    "removal error."
+                )
+
+                return
+
+            logger.info(
+                "Finalise removed %d source photo(s).",
+                len(removed_files),
+            )
+
+            # ---------------------------------------------------------
+            # Remove Empty Project Directories
+            # ---------------------------------------------------------
+
+            logger.info(
+                "Starting Finalise project directory cleanup."
+            )
+
+            try:
+
+                remove_empty_project_directories(
+                    image_directory=image_directory,
+                    project_directory=project_directory,
+                )
+
+            except OSError as error:
+
+                logger.warning(
+                    "Finalise stopped during project directory "
+                    "cleanup: %s",
+                    error,
+                )
+
+                self._window_manager.clear_activity()
+
+                self._window_manager.user_interaction(
+                    title="Project Directory Cleanup Error",
+                    message=(
+                        f"{APPLICATION_NAME} could not completely "
+                        "remove the project directory structure.\n\n"
+                        f"Error: {error}\n\n"
+                        "The project file and source photos have "
+                        "already been removed.\n\n"
+                        "Please remove the remaining empty or "
+                        "unexpected directories manually."
+                    ),
+                )
+
+                logger.info(
+                    "Finalise stopped due to project directory "
+                    "cleanup error."
+                )
+
+                return
+
+            # ---------------------------------------------------------
+            # Finalise Complete
+            # ---------------------------------------------------------
+
+            logger.info(
+                "Finalise completed successfully."
+            )
+
+            self._window_manager.clear_activity()
+
+            self._window_manager.user_interaction(
+                title="Finalise Complete",
+                message=(
+                    f"{APPLICATION_NAME} finalisation completed "
+                    "successfully.\n\n"
+                    f"{len(copy_result.copied_files)} photos were "
+                    "copied and verified.\n\n"
+                    "The project files have been removed."
+                ),
+            )
+
+            self._change_project()
+
+            return
 
         elif action == "Back":
             self._navigate_back()
@@ -1688,7 +2408,8 @@ class Orchestrator:
         """
 
         logger.info(
-            "Shutting down Photo Manager."
+            "Shutting down %s.",
+            APPLICATION_NAME,
         )
 
         self._set_state(
@@ -1702,7 +2423,31 @@ class Orchestrator:
         self._window_manager.shutdown()
 
         logger.info(
-            "Photo Manager shutdown complete."
+            "%s shutdown complete.",
+            APPLICATION_NAME,
+        )
+
+    # -----------------------------------------------------------------
+    # Finalise Progress
+    # -----------------------------------------------------------------
+
+    def _finalise_progress(
+        self,
+        activity,
+        progress: FinaliseProgress,
+    ) -> None:
+        """
+        Receive Finalise progress and update the Activity.
+        """
+
+        logger.debug(
+            "Finalise progress: %s",
+            progress.stage.name,
+        )
+
+        self._window_manager.update_finalise_activity(
+            activity,
+            progress,
         )
 
 # ============================================================================
@@ -1712,7 +2457,7 @@ class Orchestrator:
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
-        description="Photo Manager"
+        description=APPLICATION_NAME
     )
 
     parser.add_argument(

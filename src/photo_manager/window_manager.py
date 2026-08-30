@@ -57,6 +57,8 @@ from photo_manager.workflow_stage import WorkflowStage
 from PySide6.QtWidgets import (
     QApplication,
     QMessageBox,
+    QFileDialog,
+    QLabel,
 )
 from photo_manager.project_selection import (
     ProjectSelectionRecord,
@@ -66,6 +68,7 @@ from photo_manager.constants import (
     CONTROL_TOWER_DEFAULT_WIDTH,
     CONTROL_TOWER_MINIMUM_HEIGHT,
     CONTROL_TOWER_MINIMUM_WIDTH,
+    APPLICATION_NAME,
     HELP_URL,
     )
 from photo_manager.multi_os import (
@@ -83,6 +86,12 @@ from photo_manager.propagation_settings_dialog import (
     PropagationSettingsDialog,
 )
 from photo_manager.settings import Settings
+from photo_manager.finalise_activity import (
+    FinaliseActivity,
+)
+from photo_manager.finalise import (
+    FinaliseProgress,
+)
 
 logger = get_logger("Window Manager")
 
@@ -619,6 +628,74 @@ class WindowManager:
         dialog.exec()
 
     # -------------------------------------------------------------
+    # User Confirmation
+    # -------------------------------------------------------------
+
+    def user_confirmation(
+        self,
+        title: str,
+        message: str,
+    ) -> bool:
+        """
+        Display a modal Yes/No confirmation dialog.
+
+        Returns
+        -------
+        bool
+            True when the user selects Yes.
+            False when the user selects No.
+        """
+
+        logger.info(
+            "USER CONFIRMATION: %s",
+            title,
+        )
+
+        logger.info(
+            "%s",
+            message,
+        )
+
+        dialog = QMessageBox(
+            self._control_tower
+        )
+
+        dialog.setIcon(
+            QMessageBox.Warning
+        )
+
+        dialog.setWindowTitle(
+            title
+        )
+
+        dialog.setText(
+            message
+        )
+
+        message_label = dialog.findChild(
+            QLabel,
+            "qt_msgbox_label",
+        )
+
+        if message_label is not None:
+            message_label.setMinimumWidth(
+                600
+            )
+
+        dialog.setStandardButtons(
+            QMessageBox.Yes | QMessageBox.No
+        )
+
+        dialog.setDefaultButton(
+            QMessageBox.No
+        )
+
+        return (
+            dialog.exec()
+            == QMessageBox.Yes
+        )
+
+    # -------------------------------------------------------------
     # Select Directory
     # -------------------------------------------------------------
 
@@ -643,10 +720,29 @@ class WindowManager:
             title,
         )
 
-        # TODO:
-        # Display directory picker.
+        directory = QFileDialog.getExistingDirectory(
+            self._control_tower,
+            title,
+        )
 
-        return None
+        if not directory:
+
+            logger.info(
+                "Directory selection cancelled."
+            )
+
+            return None
+
+        selected_directory = Path(
+            directory
+        )
+
+        logger.info(
+            "Directory selected: %s",
+            selected_directory,
+        )
+
+        return selected_directory
 
     # -------------------------------------------------------------
     # Present Project Selection
@@ -706,12 +802,81 @@ class WindowManager:
         """
 
         logger.debug(
-            "Opening Photo Manager Help."
+            "Opening %s Help.",
+            APPLICATION_NAME,
         )
 
         QDesktopServices.openUrl(
             QUrl(HELP_URL)
         )
+
+    # -------------------------------------------------------------
+    # Present Finalise Activity
+    # -------------------------------------------------------------
+
+    def present_finalise_activity(
+        self,
+    ) -> FinaliseActivity:
+        """
+        Present the Finalise Activity.
+        """
+
+        logger.debug(
+            "Presenting Finalise Activity."
+        )
+
+        self._control_tower.set_activity_title(
+            "FINALISE"
+        )
+
+        self._control_tower.clear_activity()
+
+        activity = FinaliseActivity()
+
+        self._control_tower.set_finalise_activity(
+            activity
+        )
+
+        return activity
+
+    # -------------------------------------------------------------
+    # Update Finalise Activity
+    # -------------------------------------------------------------
+
+    def update_finalise_activity(
+        self,
+        activity: FinaliseActivity,
+        progress: FinaliseProgress,
+    ) -> None:
+        """
+        Update the displayed Finalise Activity.
+        """
+
+        activity.set_stage(
+            progress.stage
+        )
+
+        activity.set_message(
+            progress.message
+        )
+
+        activity.set_current_file(
+            progress.current_file
+        )
+
+        if (
+            progress.current is not None
+            and progress.total is not None
+        ):
+
+            activity.set_progress(
+                progress.current,
+                progress.total,
+            )
+
+        else:
+
+            activity.clear_progress()
 
     # -------------------------------------------------------------
     # Present Editor Activity
@@ -950,11 +1115,11 @@ class WindowManager:
         )
 
         dialog.setWindowTitle(
-            "Close Photo Manager"
+            f"Close {APPLICATION_NAME}"
         )
 
         dialog.setText(
-            "Are you sure you want to close Photo Manager?"
+            f"Are you sure you want to close {APPLICATION_NAME}?"
         )
 
         dialog.setStandardButtons(
@@ -1004,7 +1169,16 @@ if __name__ == "__main__":
     )
 
     windows = WindowManager()
-    
+
+    directory = window_manager.select_directory(
+        "Select Finalise Destination"
+    )
+
+    print(
+        f"Selected directory: {directory}"
+    )
+
+
     test_records = [
         ProjectSelectionRecord(
             project_name="New Project",

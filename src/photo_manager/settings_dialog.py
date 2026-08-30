@@ -31,6 +31,7 @@ from PySide6.QtWidgets import (
 )
 
 from photo_manager.settings import Settings
+from photo_manager.constants import APPLICATION_NAME
 
 
 # ---------------------------------------------------------------------
@@ -75,7 +76,7 @@ class SettingsDialog(QDialog):
         # -------------------------------------------------------------
 
         description = QLabel(
-            "These settings apply to Photo Manager as a whole."
+            f"These settings apply to {APPLICATION_NAME} as a whole."
         )
 
         description.setWordWrap(
@@ -149,7 +150,7 @@ class SettingsDialog(QDialog):
         )
 
         self._workspace_field.setToolTip(
-            "Workspace directory used by Photo Manager."
+            f"Workspace directory used by {APPLICATION_NAME}."
         )
 
         workspace_layout.addWidget(
@@ -167,7 +168,7 @@ class SettingsDialog(QDialog):
 
         if workspace_editable:
             self._browse_button.setToolTip(
-                "Select the Photo Manager workspace directory."
+                f"Select the {APPLICATION_NAME} workspace directory."
             )
         else:
             self._browse_button.setToolTip(
@@ -230,7 +231,7 @@ class SettingsDialog(QDialog):
 
         directory = QFileDialog.getExistingDirectory(
             self,
-            "Select Photo Manager Workspace",
+            f"Select {APPLICATION_NAME} Workspace",
             current_directory,
         )
 

@@ -712,7 +712,7 @@ class EditorActivity(QWidget):
 
             if character == "|":
                 return (
-                    "The '|' character is reserved by Photo Manager "
+                    f"The '|' character is reserved by {APPLICATION_NAME} "
                     "and cannot be used."
                 )
 
@@ -1193,7 +1193,7 @@ if __name__ == "__main__":
     editor = EditorActivity()
 
     editor.setWindowTitle(
-        "Photo Manager - Editor"
+        f"{APPLICATION_NAME} - Editor"
     )
 
     editor.resize(

@@ -65,6 +65,7 @@ from photo_manager.project_selection_widget import (
 )
 
 from photo_manager.editor_activity import EditorActivity
+from photo_manager.finalise_activity import FinaliseActivity
 
 # ---------------------------------------------------------------------
 # Workflow Stage Panel
@@ -591,6 +592,23 @@ class ControlTower(QMainWindow):
         )
 
     # -----------------------------------------------------------------
+    # Set Finalise Activity
+    # -----------------------------------------------------------------
+
+    def set_finalise_activity(
+        self,
+        activity: FinaliseActivity,
+    ) -> None:
+        """
+        Display the Finalise Activity.
+        """
+
+        self._activity_layout.addWidget(
+            activity,
+            1,
+        )
+
+    # -----------------------------------------------------------------
     # Create Activity Panel
     # -----------------------------------------------------------------
 
@@ -663,14 +681,26 @@ class ControlTower(QMainWindow):
         Remove the current activity from the Activity panel.
 
         The Activity title is retained.
+
+        Activity widgets are hidden and removed from the layout
+        immediately. The widget objects are then scheduled for
+        deletion.
         """
 
         while self._activity_layout.count() > 1:
+
             item = self._activity_layout.takeAt(1)
 
             widget = item.widget()
 
             if widget is not None:
+
+                widget.hide()
+
+                widget.setParent(
+                    None
+                )
+
                 widget.deleteLater()
 
     # -----------------------------------------------------------------
