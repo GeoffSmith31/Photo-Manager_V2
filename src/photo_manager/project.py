@@ -315,9 +315,13 @@ def save_photo_edit_data(
 
             elif policy.propagate == "location":
 
+                current_location_key = current_photo.get("location_key")
+                photo_location_key = photo.get("location_key")
+
                 applies = (
-                    photo["location_key"]
-                    == current_photo["location_key"]
+                    bool(current_location_key)
+                    and bool(photo_location_key)
+                    and photo_location_key == current_location_key
                 )
 
             else:

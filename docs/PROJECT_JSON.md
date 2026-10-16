@@ -612,7 +612,7 @@ defined in Section 5.
 | **Data Type** | String |
 | **Valid Values** | `NOT_STARTED`, `IN_PROGRESS`, `COMPLETE` |
 | **Used By** | Core, Importer, User Interface |
-| **Notes** | Updated by the Core as assets are registered. The value SHALL transition from `NOT_STARTED` to `IN_PROGRESS` when the first asset is registered and to `COMPLETE` when the final `Register Asset` request is received with `is_registration_complete = true`. |
+| **Notes** | Updated by the Core as asset registration progresses. The value SHALL transition from NOT_STARTED to IN_PROGRESS when asset registration begins and to COMPLETE when asset registration for the project is complete.|
 
 ---
 
@@ -627,7 +627,7 @@ defined in Section 5.
 | **Data Type** | String |
 | **Valid Values** | `NOT_STARTED`, `IN_PROGRESS`, `COMPLETE` |
 | **Used By** | Core, Importer, User Interface |
-| **Notes** | Updated by the Core as asset data is successfully stored. The value SHALL transition from `NOT_STARTED` to `IN_PROGRESS` when the first asset is successfully stored and to `COMPLETE` when the final `Store Asset Data` request is received with `is_download_complete = true`. Completion of the download phase does not imply that every registered asset was downloaded successfully. |
+| **Notes** | Updated by the Core as asset acquisition progresses. The value SHALL transition from NOT_STARTED to IN_PROGRESS when asset acquisition begins and to COMPLETE when the initial asset download phase for the project is complete. Completion of the download phase does not imply that every registered asset was downloaded successfully.|
 
 ---
 

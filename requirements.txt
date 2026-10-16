@@ -1,3 +1,4 @@
 platformdirs
 PySide6
 piexif
+playwright

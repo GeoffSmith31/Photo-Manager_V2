@@ -43,13 +43,18 @@ the sequence in which application services are invoked.
 """
 import sys
 import json
+import shutil
+import subprocess
+import time
+import argparse
+import logging
+import os
 from PySide6.QtWidgets import QApplication
 from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
-import argparse
-import logging
-import os
+from playwright.sync_api import Error as PlaywrightError
+from playwright.sync_api import sync_playwright
 from photo_manager.logging import (
     configure_logging,
     get_logger,
@@ -62,6 +67,7 @@ from photo_manager.settings import (
 from photo_manager.constants import (
     APPLICATION_LOG_DIRECTORY,
     APPLICATION_NAME,
+    LENS_BROWSER_PROFILE_DIRECTORY,
 )
 from photo_manager.project import (
     MetadataPolicies,
@@ -438,16 +444,6 @@ class Orchestrator:
 
         self._project_records.sort(
             key=lambda record: record.project_name.lower()
-        )
-
-        new_project = ProjectSelectionRecord(
-            project_name="New Project",
-            is_new_project=True,
-        )
-
-        self._project_records.insert(
-            0,
-            new_project,
         )
 
 
@@ -1693,6 +1689,9 @@ class Orchestrator:
         elif action == "Maps":
             self._show_google_maps()
 
+        elif action == "Google Images":
+            self._show_google_images()
+
         elif action == "Save & Next":
             self._save_and_next(
                 payload
@@ -2039,6 +2038,186 @@ class Orchestrator:
             latitude,
             longitude,
         )
+
+    # -----------------------------------------------------------------
+    # Editor Google Images
+    # -----------------------------------------------------------------
+
+    def _show_google_images(
+        self,
+    ) -> None:
+        """
+        Upload the current photo to Google Lens.
+        """
+
+        if self._project is None:
+            logger.error(
+                "Cannot open Google Images: no active project."
+            )
+            return
+
+        if self._project_global is None:
+            logger.error(
+                "Cannot open Google Images: "
+                "no project global data."
+            )
+            return
+
+        photo_index = self._project_global.current_photo
+
+        try:
+            photo_data = get_photo_edit_data(
+                self._project.project_json_path,
+                photo_index,
+            )
+            photo_path = Path(photo_data.file)
+
+            if not photo_path.is_file():
+                raise FileNotFoundError(
+                    f"Photo file not found: {photo_path}"
+                )
+
+        except (
+            OSError,
+            ValueError,
+            KeyError,
+            IndexError,
+            json.JSONDecodeError,
+        ) as error:
+            logger.error(
+                "Unable to obtain photo for Google Images: %s",
+                error,
+            )
+            self._window_manager.user_interaction(
+                title="Unable to Open Google Images",
+                message=(
+                    "The current photo could not be accessed."
+                ),
+            )
+            return
+
+        chrome = (
+            shutil.which("google-chrome")
+            or shutil.which("google-chrome-stable")
+        )
+
+        if chrome is None:
+            self._window_manager.user_interaction(
+                title="Google Chrome Not Found",
+                message=(
+                    "Google Chrome could not be found.\n\n"
+                    "Google Images cannot be opened."
+                ),
+            )
+            return
+
+        LENS_BROWSER_PROFILE_DIRECTORY.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        logger.info(
+            "Google Images requested for photo %d: %s",
+            photo_index + 1,
+            photo_path,
+        )
+
+        try:
+            with sync_playwright() as playwright:
+
+                try:
+                    browser = playwright.chromium.connect_over_cdp(
+                        "http://127.0.0.1:9222",
+                        timeout=1000,
+                    )
+
+                except PlaywrightError:
+                    subprocess.Popen(
+                        [
+                            chrome,
+                            (
+                                "--user-data-dir="
+                                + str(LENS_BROWSER_PROFILE_DIRECTORY)
+                            ),
+                            "--remote-debugging-port=9222",
+                            "--no-first-run",
+                            "--no-default-browser-check",
+                            "--new-window",
+                            "https://lens.google.com/",
+                        ],
+                    )
+
+                    browser = None
+
+                    for _ in range(20):
+                        time.sleep(0.5)
+
+                        try:
+                            browser = (
+                                playwright.chromium.connect_over_cdp(
+                                    "http://127.0.0.1:9222",
+                                    timeout=1000,
+                                )
+                            )
+                            break
+
+                        except PlaywrightError:
+                            continue
+
+                    if browser is None:
+                        raise RuntimeError(
+                            "Chrome did not start its debugging "
+                            "service on port 9222."
+                        )
+
+                try:
+                    context = browser.contexts[0]
+
+                    page = (
+                        context.pages[0]
+                        if context.pages
+                        else context.new_page()
+                    )
+
+                    page.goto(
+                        "https://lens.google.com/",
+                        wait_until="domcontentloaded",
+                        timeout=60000,
+                    )
+
+                    upload = page.locator(
+                        'input[name="encoded_image"]'
+                    )
+
+                    upload.wait_for(
+                        state="attached",
+                        timeout=30000,
+                    )
+
+                    upload.set_input_files(
+                        str(photo_path)
+                    )
+
+                    logger.info(
+                        "Photo submitted to Google Lens."
+                    )
+
+                finally:
+                    # Disconnect Playwright without closing Chrome.
+                    browser.close()
+
+        except Exception as error:
+            logger.exception(
+                "Unable to submit photo to Google Lens."
+            )
+
+            self._window_manager.user_interaction(
+                title="Unable to Open Google Images",
+                message=(
+                    "Google Lens could not process the photo.\n\n"
+                    f"Details: {error}"
+                ),
+            )
 
     # -----------------------------------------------------------------
     # Editor Find

@@ -389,8 +389,51 @@ class EditorActivity(QWidget):
         # Info
         # -------------------------------------------------------------
 
-        metadata_layout.addWidget(
+        self._info_label_layout = QVBoxLayout()
+
+        self._info_label_layout.addWidget(
             QLabel("Info"),
+        )
+
+        self._google_images_button = QPushButton()
+
+        self._google_images_button.setIcon(
+            QIcon(
+                str(
+                    Path(__file__).parent
+                    / "resources"
+                    / "eye.svg"
+                )
+            )
+        )
+
+        self._google_images_button.setIconSize(
+            QSize(
+                20,
+                20,
+            )
+        )
+
+        self._google_images_button.setToolTip(
+            "Launch Google Images"
+        )
+
+        self._google_images_button.setAccessibleName(
+            "Launch Google Images"
+        )
+
+        self._google_images_button.setFixedWidth(
+            40
+        )
+
+        self._info_label_layout.addWidget(
+            self._google_images_button,
+        )
+
+        self._info_label_layout.addStretch()
+
+        metadata_layout.addLayout(
+            self._info_label_layout,
             3,
             0,
             Qt.AlignmentFlag.AlignTop,
@@ -621,6 +664,10 @@ class EditorActivity(QWidget):
 
         self._maps_button.clicked.connect(
             self._maps_requested
+        )
+
+        self._google_images_button.clicked.connect(
+            self._google_images_requested
         )
 
         self._propagation_button.clicked.connect(
@@ -1096,6 +1143,17 @@ class EditorActivity(QWidget):
 
         self.action_requested.emit(
             "Maps",
+            None,
+        )
+
+    def _google_images_requested(self) -> None:
+
+        logger.debug(
+            "Google Images requested."
+        )
+
+        self.action_requested.emit(
+            "Google Images",
             None,
         )
 
