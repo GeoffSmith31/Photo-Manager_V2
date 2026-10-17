@@ -246,7 +246,7 @@ class Orchestrator:
     # Start Up
     # -----------------------------------------------------------------
 
-    def startup(self) -> None:
+    def startup(self) -> bool:
         """
         Initialise the Photo Manager application.
         """
@@ -270,7 +270,8 @@ class Orchestrator:
         # Ensures a valid workspace is available.
         # May request that the user selects one.
 
-        self._validate_workspace()
+        if not self._validate_workspace():
+            return False
 
         self._discover_projects()
 
@@ -310,7 +311,9 @@ class Orchestrator:
         logger.info(
             "Startup complete."
         )
-    
+
+        return True
+
     # -----------------------------------------------------------------
     # Load Settings
     # -----------------------------------------------------------------
@@ -336,95 +339,114 @@ class Orchestrator:
     # Validate Workspace
     # -----------------------------------------------------------------
 
-    def _validate_workspace(self) -> None:
+    def _validate_workspace(self) -> bool:
         """
-        Validate the configured workspace.
+        Validate the configured workspace, requesting a replacement
+        when necessary.
         """
 
-        logger.debug(
-            "Validating workspace."
-        )
-        
+        logger.debug("Validating workspace.")
+
         self._window_manager.status_message(
             "Validating workspace."
         )
 
         workspace = self._settings.workspace_directory
 
-        valid = True
-        validation_message = None
+        def validate_directory(
+            directory: Path | None,
+        ) -> str | None:
+            if directory is None:
+                return "No workspace has been configured."
 
-        # -------------------------------------------------------------
-        # Validate the configured workspace.
-        # -------------------------------------------------------------
+            if not directory.exists():
+                return (
+                    f"Configured workspace does not exist: {directory}"
+                )
 
-        if workspace is None:
+            if not directory.is_dir():
+                return (
+                    f"Configured workspace is not a directory: {directory}"
+                )
 
-            valid = False
-            validation_message = (
-                "No workspace has been configured."
+            if not os.access(directory, os.R_OK):
+                return (
+                    f"Configured workspace is not readable: {directory}"
+                )
+
+            if not os.access(directory, os.W_OK):
+                return (
+                    f"Configured workspace is not writable: {directory}"
+                )
+
+            return None
+
+        validation_message = validate_directory(workspace)
+
+        if validation_message is not None:
+            logger.warning("%s", validation_message)
+
+            workspace = self._select_workspace(
+                validation_message,
             )
 
-        elif not workspace.exists():
+            if workspace is None:
+                logger.warning(
+                    "Workspace selection cancelled; startup cannot continue."
+                )
+                return False
 
-            valid = False
-            validation_message = (
-                f"Configured workspace does not exist: {workspace}"
+            validation_message = validate_directory(workspace)
+
+            if validation_message is not None:
+                logger.error(
+                    "Selected workspace is invalid: %s",
+                    validation_message,
+                )
+
+                self._window_manager.user_interaction(
+                    title="Invalid Workspace",
+                    message=(
+                        f"{validation_message}\n\n"
+                        "Please restart Photo Manager and select "
+                        "a valid workspace."
+                    ),
+                )
+                return False
+
+            updated_settings = Settings(
+                logging_level=self._settings.logging_level,
+                workspace_directory=workspace,
             )
 
-        elif not workspace.is_dir():
+            try:
+                save_settings(updated_settings)
+            except OSError as error:
+                logger.error(
+                    "Unable to save workspace settings: %s",
+                    error,
+                )
 
-            valid = False
-            validation_message = (
-                f"Configured workspace is not a directory: {workspace}"
-            )
+                self._window_manager.user_interaction(
+                    title="Unable to Save Settings",
+                    message=(
+                        "The workspace could not be saved to "
+                        "application settings.\n\n"
+                        "Please check that the settings file is "
+                        "writable and try again."
+                    ),
+                )
+                return False
 
-        elif not os.access(
-            workspace,
-            os.R_OK,
-        ):
+            self._settings = load_settings()
 
-            valid = False
-            validation_message = (
-                f"Configured workspace is not readable: {workspace}"
-            )
+        self._workspace = workspace
 
-        elif not os.access(
-            workspace,
-            os.W_OK,
-        ):
-
-            valid = False
-            validation_message = (
-                f"Configured workspace is not writable: {workspace}"
-            )
-
-        # -------------------------------------------------------------
-        # Validation successful.
-        # -------------------------------------------------------------
-
-        if valid:
-
-            self._workspace = workspace
-
-            logger.debug(
-                "Workspace validated."
-            )
-
-            return
-
-        # -------------------------------------------------------------
-        # Validation failed.
-        # -------------------------------------------------------------
-
-        logger.warning(
-            validation_message
+        logger.info(
+            "Workspace validated: %s",
+            self._workspace,
         )
-
-        self._select_workspace(
-            validation_message,
-        )
-
+        return True
     # -----------------------------------------------------------------
     # Discover Projects
     # -----------------------------------------------------------------
@@ -2744,7 +2766,10 @@ def main() -> None:
 
     orchestrator._window_manager.show_control_tower()
 
-    orchestrator.startup()
+    if not orchestrator.startup():
+        orchestrator.shutdown()
+        application.quit()
+        return
 
     # -------------------------------------------------------------
     # Development diagnostics
