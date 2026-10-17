@@ -1,0 +1,31 @@
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "photo-manager"
+version = "2.0.0"
+description = "Photo Manager desktop application"
+requires-python = ">=3.12"
+license = "MPL-2.0"
+authors = [
+    { name = "Geoff", email = "dev.photomanager@gmail.com" },
+]
+dependencies = [
+    "platformdirs",
+    "PySide6",
+    "piexif",
+    "playwright",
+]
+
+[project.urls]
+Homepage = "https://geoffsmith31.github.io/Photo-Manager_V2/"
+Repository = "https://github.com/GeoffSmith31/Photo-Manager_V2"
+
+[project.scripts]
+photo-manager = "photo_manager.orchestrator:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+

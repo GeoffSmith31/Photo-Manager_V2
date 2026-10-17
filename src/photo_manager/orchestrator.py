@@ -2693,11 +2693,13 @@ class Orchestrator:
             progress,
         )
 
+
 # ============================================================================
-# Standalone Test Harness
+# Application Entry Point
 # ============================================================================
 
-if __name__ == "__main__":
+def main() -> None:
+    """Start the Photo Manager application."""
 
     parser = argparse.ArgumentParser(
         description=APPLICATION_NAME
@@ -2734,9 +2736,7 @@ if __name__ == "__main__":
         console_logging=console_logging,
     )
 
-    application = QApplication(
-        sys.argv
-    )
+    application = QApplication(sys.argv)
 
     orchestrator = Orchestrator(
         settings=settings,
@@ -2746,30 +2746,35 @@ if __name__ == "__main__":
 
     orchestrator.startup()
 
-    # Existing test-harness code follows...
-    
-    logger.debug(
-        "Project selection records:"
-    )
+    # -------------------------------------------------------------
+    # Development diagnostics
+    # -------------------------------------------------------------
 
-    for index, record in enumerate(
-        orchestrator._project_records
-    ):
+    if args.dev:
+        logger.debug("Project selection records:")
+
+        for index, record in enumerate(
+            orchestrator._project_records
+        ):
+            logger.debug(
+                "  [%s] name=%s, json=%s, image_folder=%s, "
+                "thumbnail=%s, new_project=%s, valid=%s",
+                index,
+                record.project_name,
+                record.project_json_path,
+                record.image_folder,
+                record.thumbnail_path,
+                record.is_new_project,
+                record.valid,
+            )
+
         logger.debug(
-            "  [%s] name=%s, json=%s, image_folder=%s, "
-            "thumbnail=%s, new_project=%s, valid=%s",
-            index,
-            record.project_name,
-            record.project_json_path,
-            record.image_folder,
-            record.thumbnail_path,
-            record.is_new_project,
-            record.valid,
+            "Current state: %s",
+            orchestrator.state.name,
         )
 
-    logger.debug(
-        "Current state: %s",
-        orchestrator.state.name,
-    )
-
     application.exec()
+
+
+if __name__ == "__main__":
+    main()
