@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Photo Manager Window - Photo Manager Help</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 850px;
+            margin: 40px auto;
+            padding: 0 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        h1, h2, h3 {
+            color: #234b70;
+        }
+
+        nav {
+            margin-bottom: 24px;
+        }
+
+        img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        figure {
+            margin: 24px 0;
+        }
+
+        figcaption {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 6px;
+        }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <a href="index.html">Photo Manager Help</a>
+    </nav>
+
+    <h1>The Photo Manager Window</h1>
+
+    <p>
+        The main Photo Manager window provides an overview of the workflow,
+        the current project and the controls used to work with your photos.
+    </p>
+
+<figure>
+    <img src="images/main-window.png"
+         alt="Photo Manager main window showing the workflow panels, project tiles and Action buttons">
+    <figcaption>
+        The Photo Manager main window, showing the workflow panels,
+        Project Selection area and Action buttons.
+    </figcaption>
+</figure>
+
+<h2>The Workflow Panels</h2>
+
+<p>
+    The Workflow panels on the left-hand side of the Photo Manager window
+    provide a summary of the application's progress and the current project.
+    They help you see which stage is active and what has happened so far.
+</p>
+
+<h3>Initialisation</h3>
+
+<p>
+    Indicates whether Photo Manager has started successfully and located
+    the configured workspace. A completed status with a Success message
+    confirms that initialisation has succeeded.
+</p>
+
+<h3>Project Selection</h3>
+
+<p>
+    Shows the status of project selection and, once a project is selected,
+    displays the name of the project being worked on.
+</p>
+
+<h3>Source Selection</h3>
+
+<p>
+    Displays the importer and source identifier associated with the project.
+</p>
+
+<h3>Importing</h3>
+
+<p>
+    Displays the number of photographs registered in the project and the
+    number available to Photo Manager. These numbers should normally be the
+    same.
+</p>
+
+<h3>Editing</h3>
+
+<p>
+    Indicates whether the editing stage is pending or in progress.
+</p>
+
+<h3>Finalisation</h3>
+
+<p>
+    Indicates whether the finalisation stage is pending or in progress.
+</p>
+
+<h2>Action Buttons</h2>
+
+<h3>Close</h3>
+
+<p>
+    Click <strong>Close</strong> to exit Photo Manager. A confirmation
+    dialog asks whether you are sure you want to close the application.
+    Click <strong>Yes</strong> to close Photo Manager, or
+    <strong>No</strong> to return to the application.
+</p>
+
+<h3>Settings</h3>
+
+<p>
+    Click <strong>Settings</strong> to open the Application Settings window.
+    These settings apply to Photo Manager as a whole.
+</p>
+
+<ul>
+    <li>
+        <strong>Logging Level</strong> — selects the level of detail recorded
+        in the application logs.
+    </li>
+    <li>
+        <strong>Workspace Directory</strong> — displays the configured
+        workspace directory. The <strong>Browse...</strong> button is
+        available in Project Selection, allowing you to choose a different
+        workspace. It is disabled while editing a project.
+    </li>
+</ul>
+
+<p>
+    Click <strong>OK</strong> to accept the settings, or
+    <strong>Cancel</strong> to close the window without applying changes.
+</p>
+
+<h3>Help</h3>
+
+<p>
+    Click <strong>Help</strong> to open the Photo Manager help website
+    in your web browser. The website provides guidance on using Photo
+    Manager and its features.
+</p>
+
+<h3>Finalise</h3>
+
+<p>
+    Click <strong>Finalise</strong> when you have finished working on a
+    project. Photo Manager checks whether the project contains any unedited
+    photographs. If it does, a warning displays the number of unedited
+    photographs and asks whether you want to continue.
+</p>
+
+<p>
+    You can choose to cancel finalisation and return to the project, or
+    continue despite the unedited photographs. If all photographs have
+    been edited, or you choose to continue, a directory browser opens so
+    you can select where the photographs should be moved.
+</p>
+
+<p>
+    Once finalisation is completed, the photographs are moved to the
+    selected destination and the project is removed from the Photo Manager
+    workspace.
+</p>
+
+<p>
+    For the full procedure, see
+    <a href="finalising-projects.html">Finalising a Project</a>.
+</p>

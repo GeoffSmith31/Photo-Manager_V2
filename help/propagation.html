@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Propagation Settings - Photo Manager Help</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 850px;
+            margin: 40px auto;
+            padding: 0 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        h1, h2, h3 {
+            color: #234b70;
+        }
+
+        nav {
+            margin-bottom: 24px;
+        }
+
+        img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        figure {
+            margin: 24px 0;
+        }
+
+        figcaption {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 6px;
+        }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <a href="index.html">Photo Manager Help</a> |
+        <a href="working-with-photos.html">Working with Photos</a>
+    </nav>
+
+    <h1>Propagation Settings</h1>
+
+    <h2>Why Propagation?</h2>
+
+    <p>
+        When working through a photo collection, you will often find that
+        information applies to more than one photograph. Several photographs
+        might belong to the same event, have been taken in the same year, or
+        have been taken at the same location.
+    </p>
+
+    <p>
+        Entering the same information for each photograph individually would
+        be repetitive and time-consuming. Propagation allows Photo Manager to
+        apply a change to other eligible photographs automatically, reducing
+        repetitive work and helping keep the information consistent throughout
+        a project.
+    </p>
+
+    <p>
+        You can control how propagation works by choosing a setting for each
+        of the four Photo Details fields: Event, Year, Location and Info.
+        These settings determine whether a change applies only to the current
+        photograph or is also applied to other photographs in the project.
+    </p>
+
+    <h2>Opening Propagation Settings</h2>
+
+    <p>
+        In the Photo Editor, click <strong>Propagation Settings</strong>
+        to open the settings editor.
+    </p>
+
+    <figure>
+        <img src="images/propagation-settings.png"
+             alt="Photo Manager Propagation Settings dialog showing settings for Event, Year, Location and Info">
+        <figcaption>
+            The Propagation Settings editor. Each Photo Details field has
+            its own propagation setting.
+        </figcaption>
+    </figure>
+
+    <h2>The Four Propagation Options</h2>
+
+    <p>
+        Each of the four Photo Details fields can have its own propagation
+        setting. The available options are None, Project, Group and Location.
+    </p>
+
+    <h3>None</h3>
+
+    <p>
+        The change to this field is not propagated to other photographs.
+    </p>
+
+    <h3>Project</h3>
+
+    <p>
+        The change is propagated to all unedited photographs
+        in the project.
+    </p>
+
+    <h3>Group</h3>
+
+    <p>
+        The change is propagated to unedited photographs assigned
+        to the same group by the importer.
+    </p>
+
+    <h3>Location</h3>
+
+    <p>
+        The change is propagated to unedited photographs assigned
+        to the same location by the importer.
+    </p>
+
+    <h2>How Group and Location Are Determined</h2>
+
+    <p>
+        The Group and Location associated with each photograph are determined
+        by the importer when the project is created. Each importer uses its
+        own rules and algorithms to assign these values.
+    </p>
+
+    <p>
+        Location may be determined using GPS location data associated with a
+        photograph, where such data is available. The way groups and locations
+        are assigned depends on the importer used to create the project.
+    </p>
+
+    <p>
+        Propagation uses these importer-assigned values to determine which
+        photographs are eligible to receive a change.
+    </p>
+
+    <h2>Initial Propagation Settings</h2>
+
+    <p>
+        When a project is created, the importer also sets the initial
+        propagation settings for that project. These settings determine
+        how changes to Event, Year, Location and Info are applied to other
+        eligible photographs.
+    </p>
+
+    <p>
+        You can review and change these settings at any time using the
+        <strong>Propagation Settings</strong> button in the Photo Editor.
+    </p>
+
+    <p>
+        Click <strong>OK</strong> to save changes to the propagation settings.
+        Saving these settings updates the settings file; it does not
+        immediately propagate any photo details.
+    </p>
+
+    <h2>When Does Propagation Occur?</h2>
+
+    <p>
+        Propagation occurs when you click <strong>Save &amp; Next</strong>
+        after editing a photograph. Photo Manager saves the current
+        photograph's details to its EXIF UserComment and applies the
+        configured propagation rules to other eligible photographs.
+    </p>
+
+    <p>
+        Changing or saving the propagation settings alone does not propagate
+        any information. The rules take effect when photo details are saved
+        using <strong>Save &amp; Next</strong>.
+    </p>
+
+    <h2>Which Photos Can Be Updated?</h2>
+
+    <p>
+        Propagation applies only to unedited photographs. For this purpose,
+        an unedited photograph is one whose EXIF data has not yet been written
+        to the photo file by Photo Manager.
+    </p>
+
+    <p>
+        When you click <strong>Save &amp; Next</strong>, Photo Manager writes
+        the current photograph's details to its EXIF UserComment. That
+        photograph is then considered edited and is no longer eligible to
+        receive propagated changes from subsequent photographs.
+    </p>
+
+    <p>
+        For example, if you save a photograph with the Event set to
+        <em>Sunshine Holiday</em>, a later change to the Event on another
+        photograph cannot propagate back to update the first photograph.
+        Its details have already been saved.
+    </p>
+
+    <p>
+        This is important when working through a project: propagation can
+        update photographs that have not yet been processed, but it cannot
+        revise photographs whose EXIF data has already been written.
+    </p>
+
+</body>
+</html>

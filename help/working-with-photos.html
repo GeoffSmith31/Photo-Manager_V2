@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Working with Photos - Photo Manager Help</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 850px;
+            margin: 40px auto;
+            padding: 0 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        h1, h2 {
+            color: #234b70;
+        }
+
+        img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        figure {
+            margin: 24px 0;
+        }
+
+        figcaption {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 6px;
+        }
+
+        nav {
+            margin-bottom: 24px;
+        }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <a href="index.html">Photo Manager Help</a>
+    </nav>
+
+    <h1>Working with Photos</h1>
+
+    <h2>The Photo Editor</h2>
+
+    <p>
+        When you select a project, Photo Manager opens it in the Photo Editor.
+        The editor displays one photograph at a time, together with the
+        information associated with that photograph.
+    </p>
+
+    <figure>
+        <img src="images/photo-editor.png"
+             alt="Photo Manager Photo Editor showing a photograph, its information fields, navigation controls and workflow stages">
+        <figcaption>
+            The Photo Editor. The photograph and its associated information
+            are displayed together.
+        </figcaption>
+    </figure>
+
+    <p>
+        The editor is organised into several areas. The workflow stages appear
+        on the left, the current photograph is displayed in the centre, and
+        the Photo Information fields appear on the right. Navigation and
+        search controls are located below the photograph and information fields. 
+        Action buttons are in a panel at the bottom of the window.
+    </p>
+
+    <p>
+        The following sections explain how to view and edit photo information,
+        move between photographs, and save your changes.
+    </p>
+    <h2>Photo Details</h2>
+
+    <p>
+        The Photo Details area contains four fields: <strong>Event</strong>,
+        <strong>Year</strong>, <strong>Location</strong> and <strong>Info</strong>.
+        Together, these fields describe the photograph and contribute to the
+        metadata that Photo Manager saves in the photograph's EXIF UserComment.
+    </p>
+
+    <p>
+        When a project is created, the importer supplies initial values for these
+        fields according to its own methods. You can edit any of the fields to
+        correct, add to or change the information as required.
+    </p>
+
+    <h2>Browser Helpers</h2>
+
+    <p>
+        Photo Manager provides two buttons that open external services in your
+        web browser to help you identify information about a photograph.
+    </p>
+
+    <p>
+        These browser helpers allow you to investigate a photograph and gather
+        information that can help you complete or correct its Photo Details
+        fields. The information you discover can then be entered into Photo
+        Manager.
+    </p>
+
+    <h3>Google Maps</h3>
+
+    <p>
+        The pin icon opens Google Maps and places a pin at the GPS coordinates
+        associated with the photograph, as determined by the importer.
+        This can help you identify the photograph's location when the importer
+        has not been able to determine it successfully by other means.
+    </p>
+
+    <p>
+        The button is inactive if the photograph has no associated GPS location.
+    </p>
+
+    <h3>Google Images</h3>
+
+    <p>
+        The eye icon opens Google Images in your web browser and loads the
+        current photograph. You can use this to help identify landmarks,
+        monuments and other objects shown in the photograph.
+    </p>
+
+    <h2>Saving Changes</h2>
+
+    <p>
+        When you have finished editing the information for a photograph, click
+        <strong>Save &amp; Next</strong>. Photo Manager saves the information into
+        the photograph's EXIF UserComment and updates the importer's suggested
+        values for the photo.
+    </p>
+
+    <h2>Propagation Settings</h2>
+
+    <p>
+        The <strong>Propagation Settings</strong> button opens the Propagation
+        Settings editor, where you can control how changes to photo details
+        are applied to other photographs in the project.
+    </p>
+
+    <p>
+        To understand how propagation works and how to configure its settings,
+        see <a href="propagation.html">Propagation Settings</a>.
+    </p>
+
+    <h2>Changing Projects</h2>
+
+    <p>
+        Click <strong>Change Project</strong> to return to the Project Selection
+        screen, where you can select another project to work with.
+    </p>
+
+    <p>
+        Any photo details you have saved using <strong>Save &amp; Next</strong>
+        have already been written to the photograph's EXIF UserComment. You do
+        not need to save them again before changing projects.
+    </p>
+    <h2>Keyboard Shortcuts</h2>
+
+    <p>
+        You can use the keyboard to move through the Photo Details fields and
+        save your changes without having to click each field with the mouse.
+    </p>
+
+    <ul>
+        <li><strong>Alt+E</strong> — Move focus to the Event field.</li>
+        <li><strong>Enter</strong> — Move through the Event, Year, Location and
+            Info fields in sequence.</li>
+        <li><strong>Enter</strong> in the Info field — Save the changes using
+            <strong>Save &amp; Next</strong> and move to the next photograph.
+            The cursor then returns to the Event field, ready for the next entry.</li>
+        <li><strong>Alt+P</strong> — Move focus to the field beside
+            <strong>Goto</strong>, where you can enter a photo number.</li>
+        <li><strong>Enter</strong> in the Goto field — Activate Goto and
+            navigate directly to the specified photograph.</li>
+
+    </ul>
+
+    <p>
+        This provides a convenient way to work through a project, entering or
+        revising the details for each photograph and then continuing to the next.
+    </p>
+    <h2>Moving Between Photos</h2>
+
+    <p>
+        Use the <strong>Back</strong> and <strong>Forward</strong> buttons to
+        move to the previous or next photograph in the project. You can also
+        enter a photo number in the field beside <strong>Goto</strong> and
+        activate Goto to jump directly to that photograph.
+    </p>
+
+    <p>
+        These controls navigate between photographs; they do not save changes
+        to the current photograph. Use <strong>Save &amp; Next</strong> when
+        you want to save your edits and continue to the next photograph.
+    </p>
+
+    <p>
+        Goto will not navigate if the number entered is outside the range of
+        photographs in the project. Similarly, trying to move Back from the
+        first photograph or Forward from the last photograph displays an error
+        message. Click <strong>OK</strong> to dismiss the message.
+    </p>
+    <h2>Finding Photos</h2>
+
+    <p>
+        The Find panel lets you search through a project for photographs that
+        match a particular criterion. You can search backwards or forwards
+        through the project to find the previous or next matching photograph.
+    </p>
+
+    <p>
+        Select one of the following criteria:
+    </p>
+
+    <ul>
+        <li><strong>Unedited</strong> — Find a photograph that has not been edited.</li>
+        <li><strong>Missing Event</strong> — Find a photograph with no Event value.</li>
+        <li><strong>Missing Year</strong> — Find a photograph with no Year value.</li>
+        <li><strong>Missing Location</strong> — Find a photograph with no Location value.</li>
+        <li><strong>Missing Info</strong> — Find a photograph with no Info value.</li>
+        <li><strong>Containing Text</strong> — Find a photograph whose details contain the specified text.</li>
+    </ul>
+
+    <p>
+        Use <strong>Previous</strong> or <strong>Next</strong> to search in the
+        corresponding direction for a photograph matching the selected criterion.
+        This makes it easier to locate photographs that need attention or to find
+        particular information within a project.
+    </p>
+</body>
+</html>

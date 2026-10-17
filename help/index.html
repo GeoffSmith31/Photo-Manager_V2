@@ -1,21 +1,132 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-AU">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Photo Manager Help</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 850px;
+            margin: 40px auto;
+            padding: 0 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        h1, h2 {
+            color: #234b70;
+        }
+    </style>
 </head>
 <body>
 
-<h1>Photo Manager Help</h1>
+    <h1>Photo Manager Help</h1>
+    <p><a href="about.html">About Photo Manager</a></p>
+    <h2>What is Photo Manager?</h2>
+
+    <p>
+        In the days of film cameras, people often wrote notes on the back of
+        printed photographs. A name, a date, a place, or a few words describing
+        the occasion could preserve valuable information for future generations.
+        These notes can be invaluable to people trying to identify ancestors,
+        relatives, friends, and occasions from the past.
+    </p>
+
+    <p>
+        Digital photography has changed all that. We can now take thousands of
+        photographs with very little cost or effort, but many of those images
+        have little or no information to explain who is in them, where they were
+        taken, or what was happening at the time. Even when someone records this
+        information, it is often kept in a separate document, disconnected from
+        the photographs themselves. Over time, the photographs can easily become
+        disassociated from the document, and the information may be lost.
+    </p>
+
+    <p>
+        <strong>Photo Manager binds the photographs and their associated
+        information together.</strong> It provides a structured way to work with
+        photo collections and the information that gives those images meaning,
+        helping preserve that knowledge for future reference.
+    </p>
+
+    <p>
+        The aim is simple: to make sure that photographs remain more than just
+        pictures — they retain the stories and information that make them a valuable memory.
+    </p>
+  
+  <p>
+        Photo Manager lets you record information about photographs and then
+        writes that information directly into the metadata of each photo's file.
+        Because the information is stored within the files themselves, it stays
+        with the photographs when they are copied, moved, or shared, rather than
+        depending on a separate document that can become lost or disconnected
+        from the images.
+    </p>
+
+    <p>
+        Many photo viewing applications can display the metadata that is written
+        by Photo Manager.
+    </p>
+    
+    <h2>Using Photo Manager</h2>
+
+    <ul>
+        <li>
+            <a href="getting-started.html">Getting Started</a>
+            — Launch Photo Manager, choose a workspace, and select a project.
+        </li>
+
+        <li>
+            <a href="main-window.html">The Photo Manager Window</a>
+            — Understand the workflow panels and the Action buttons on the window.
+        </li>
+        
+        <li>
+            <a href="working-with-photos.html">Working with Photos</a>
+            — Learn about the Photo Editor and working with photo information.
+        </li>
+    </ul>
+<h2>Supporting Files</h2>
 
 <p>
-    Welcome to Photo Manager.
+    Photo Manager stores its application and supporting files
+    in the following locations:
 </p>
+
+<ul>
+    <li>
+        <strong>Application files:</strong>
+        <code>~/.local/opt/photo-manager/PhotoManager/</code>
+    </li>
+    <li>
+        <strong>Uninstaller:</strong>
+        <code>~/.local/opt/photo-manager/uninstall.sh</code>
+    </li>
+    <li>
+        <strong>Application launcher:</strong>
+        <code>~/.local/share/applications/photo-manager.desktop</code>
+    </li>
+    <li>
+        <strong>Configuration settings:</strong>
+        <code>~/.config/photo_manager/settings.json</code>
+    </li>
+    <li>
+        <strong>Application log:</strong>
+        <code>~/.local/share/photo_manager/logs/photo_manager.log</code>
+    </li>
+</ul>
 
 <p>
-    User documentation is currently being developed.
+    The release archive also contains
+    <code>README-UBUNTU.txt</code>, which provides installation
+    information. It is not installed with the application.
 </p>
 
+    <p>
+        The <code>~</code> represents your home directory. On a typical
+        installation, these paths begin with <code>/home/</code> followed
+        by your username.
+    </p>
 </body>
 </html>
