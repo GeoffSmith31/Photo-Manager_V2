@@ -851,3 +851,52 @@ The transition is coordinated by the Orchestrator.
 The governing responsibility boundary is:
 
 > **The Finalise Service performs the work; the Orchestrator coordinates it; the Window Manager presents it.**
+
+# ADR-012 — Standalone Importers and Project JSON Contract
+
+**Status:** Accepted
+**Date:** 2026-10-18
+
+## Context
+
+The original Photo Manager V2 architecture defined a direct interface between the Photo Manager Core and Importers. This relationship was documented in the Core–Importer API Specification and supported by the Importer SDK Specification.
+
+The architecture has since been redesigned. Importers now operate as standalone applications that communicate with their respective source systems, acquire photo assets, and produce Photo Manager projects.
+
+Photo Manager consumes these projects for project management, photo editing and metadata processing. It does not require a direct API connection to the Importer that created a project.
+
+The `project.json` file provides the persistent representation of a project and defines the data exchanged between an Importer and Photo Manager.
+
+## Decision
+
+The `project.json` format is the sole contract between an Importer and Photo Manager.
+
+Importers SHALL produce projects that conform to the applicable Project JSON schema. Photo Manager SHALL interpret those projects according to the same contract.
+
+No shared Core–Importer API or Importer SDK is required.
+
+The Project JSON Reference is the authoritative developer reference for the structure, field definitions and constraints of `project.json`. The schema version identifies the version of the project format to which the file conforms.
+
+The following specifications are superseded by this decision:
+
+- `CORE-IMPORTER_API_SPECIFICATION` — the direct Core–Importer API it defines is no longer part of the adopted architecture.
+- `IMPORTER_SDK_SPECIFICATION` — the SDK and plugin integration model it defines is no longer required.
+
+These specifications are retained as historical records of the previous architecture. They are not authoritative for new development.
+
+## Rationale
+
+Using `project.json` as the integration contract separates Importer implementation from Photo Manager's internal architecture.
+
+This allows Importers to be developed, tested and operated independently, provided their output conforms to the agreed project format.
+
+It also establishes a single authoritative contract for the data required by Photo Manager, avoiding the need to maintain separate API, SDK and project-format specifications for the Importer–Photo Manager relationship.
+
+## Consequences
+
+- Importers do not need to implement the former Core–Importer API or SDK.
+- Photo Manager does not need a direct runtime connection to an Importer.
+- Importer compatibility is determined by conformance to the applicable Project JSON schema.
+- Changes to the shared data contract must be reflected in the Project JSON specification and reference documentation.
+- The Core–Importer API Specification and Importer SDK Specification remain available for historical reference but must not be used as requirements for new development.
+- Importer-specific implementation details and source-system interactions remain the responsibility of each Importer and are outside the shared project-format contract.

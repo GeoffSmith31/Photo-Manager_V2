@@ -1,7 +1,11 @@
 # Photo Manager V2
 # Core-Importer API Specification
 
-Document Status: Draft
+**Status:** Superseded
+**Superseded by:** ADR-012 — Standalone Importers and Project JSON Contract
+**Date:** 2026-10-21
+
+> **Notice:** This specification describes an earlier Photo Manager architecture and is retained for historical reference only. It is no longer authoritative and must not be used as a requirement for new development. The `project.json` format is the contract between standalone Importers and Photo Manager. Refer to the Project JSON Reference for the authoritative description of that contract.
 Document Version: 1.2
 
 Defines:
